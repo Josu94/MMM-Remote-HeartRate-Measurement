@@ -18,7 +18,8 @@ module.exports = NodeHelper.create({
     python_start: function () {
         const self = this;
 
-        var childProcess = spawn('python', ["-u", "modules/MMM-Remote-HeartRate-Measurement/counter.py"], {stdio: 'pipe'});
+        //var childProcess = spawn('python', ["-u", "modules/MMM-Remote-HeartRate-Measurement/counter.py"], {stdio: 'pipe'});
+        var childProcess = spawn('python', ["-u", "modules/MMM-Remote-HeartRate-Measurement/ultrasonicSensorTest.py"], {stdio: 'pipe'});
 
         childProcess.stdout.on('data', (data) => {
             console.log(`${data}`)
