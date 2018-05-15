@@ -46,11 +46,8 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
     },
 
     notificationReceived: function (notification, payload, sender) {
-        //const self = this;
-        //var pirSensor = payload.config.pirSensor;
-
-        //if (pirSensor && notification === 'USER_PRESENCE' && sender.name === 'MMM-PIR-Sensor') {
-        if (notification === 'USER_PRESENCE') {
+        var self = this;
+        if (self.config.pirSensor && notification === 'USER_PRESENCE' && sender.name === 'MMM-PIR-Sensor') {
             Log.log("+++++++++++++++++++++++++++++++++++PIR Sensor: True, USER_PRESENCE+++++++++++++++++++++++++++++++++++");
         }
     }
