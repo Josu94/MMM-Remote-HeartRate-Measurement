@@ -13,6 +13,7 @@
 # import required modules
 import time
 import RPi.GPIO as GPIO
+import faceDetection
 
 # define GPIO pins
 GPIOTrigger = 25
@@ -59,6 +60,11 @@ def main():
                 print("Come closer to measure your pulse...")
             elif Ergebnis[0] < 100:
                 print("Searching for faces to measure pulse...")
+                faceFound = faceDetection.searchFace()
+                if faceFound:
+                    print("Face was found!")
+                else:
+                    print("No face was found!")
             time.sleep(1)
 
     # reset GPIO settings if user pressed Ctrl+C

@@ -21,7 +21,7 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
         var title = document.createElement("div");
         var heartbeat = document.createElement("div");
         title.innerHTML = this.config.text;
-        heartbeat.innerHTML = this.config.heartbeat + " bpm";
+        heartbeat.innerHTML = this.config.heartbeat;
         wrapper.appendChild(title);
         wrapper.appendChild(heartbeat);
         return wrapper;
