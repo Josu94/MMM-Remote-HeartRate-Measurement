@@ -54,9 +54,16 @@ module.exports = NodeHelper.create({
                 pythonStarted = true;
                 this.python_start();
             }
-            ;
         }
-        ;
+    },
+
+    notificationReceived: function (notification, payload, sender) {
+        const self = this;
+        var pirSensor = payload.config.pirSensor;
+
+        if (pirSensor && notification === 'USER_PRESENCE' && sender.name === 'MMM-PIR-Sensor') {
+            console.log('PIR Sensor: True, USER_PRESENCE');
+        }
     }
 
 });
