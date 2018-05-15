@@ -54,11 +54,10 @@ def main():
     try:
         while True:
             Ergebnis = MesseDistanz()
-            print("Ergebnis der Messung: ")
-            print(Ergebnis)
-            if Ergebnis > 100:
+
+            if Ergebnis[0] > 100:
                 print("Come closer to measure your pulse...")
-            elif Ergebnis < 100:
+            elif Ergebnis[0] < 100:
                 print("Searching for faces to measure pulse...")
             time.sleep(1)
 
