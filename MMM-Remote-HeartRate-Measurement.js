@@ -31,10 +31,10 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
         Log.info('Starting module: ' + this.name);
 
         // Schedule chart update interval.
-		var self = this;
-		setInterval(function() {
-			self.sendNotification('UPDATECHART', true);
-		}, 10000);
+        var self = this;
+        setInterval(function () {
+            self.sendNotification('UPDATECHART', true);
+        }, 10000);
     },
 
     socketNotificationReceived: function (notification, payload) {
@@ -44,6 +44,16 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
             this.updateDom()
         }
         ;
+    },
+
+    notificationReceived: function (notification, payload, sender) {
+        const self = this;
+        var pirSensor = payload.config.pirSensor;
+
+        //if (pirSensor && notification === 'USER_PRESENCE' && sender.name === 'MMM-PIR-Sensor') {
+        if (notification === 'USER_PRESENCE') {
+            console.log("+++++++++++++++++++++++++++++++++++PIR Sensor: True, USER_PRESENCE+++++++++++++++++++++++++++++++++++");
+        }
     }
 
 });
