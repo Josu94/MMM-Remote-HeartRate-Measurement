@@ -54,7 +54,12 @@ def main():
     try:
         while True:
             Ergebnis = MesseDistanz()
-            print("Gemessene Entfernung: %.1f cm (Signallaufzeit: %.4fms)" % (Ergebnis[0], Ergebnis[1]))
+            print("Ergebnis der Messung: ")
+            print(Ergebnis)
+            if Ergebnis > 100:
+                print("Come closer to measure your pulse...")
+            elif Ergebnis < 100:
+                print("Searching for faces to measure pulse...")
             time.sleep(1)
 
     # reset GPIO settings if user pressed Ctrl+C

@@ -10,7 +10,9 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
 
     // Default module config.
     defaults: {
-        heartbeat: 0
+        heartbeat: 0,
+        pirSensor: true,
+        ultrasonicSensor: true
     },
 
     // Override dom generator.
@@ -47,8 +49,8 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
 
     notificationReceived: function (notification, payload, sender) {
         var self = this;
-        if (self.config.pirSensor && notification === 'USER_PRESENCE' && sender.name === 'MMM-PIR-Sensor') {
-            Log.log("+++++++++++++++++++++++++++++++++++PIR Sensor: True, USER_PRESENCE+++++++++++++++++++++++++++++++++++");
+        if (self.config.pirSensor && self.config.ultrasonicSensor && notification === 'USER_PRESENCE' && sender.name === 'MMM-PIR-Sensor') {
+            Log.log("PIR Sensor: True, Ultrasonic Sensor: True, USER_PRESENCE");
         }
     }
 
