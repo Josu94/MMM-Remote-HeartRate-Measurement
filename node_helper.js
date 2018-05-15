@@ -48,7 +48,7 @@ module.exports = NodeHelper.create({
 
     // Subclass socketNotificationReceived received.
     socketNotificationReceived: function (notification, payload) {
-        if (notification === 'CONFIG') {
+        if (notification === 'WAITING_FOR_FACE_DETECTION') {
             this.config = payload
             if (!pythonStarted) {
                 pythonStarted = true;
