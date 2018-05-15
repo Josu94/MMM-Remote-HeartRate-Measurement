@@ -60,7 +60,7 @@ def main():
                 print("Come closer to measure your pulse...")
             elif Ergebnis[0] < 100:
                 print("Searching for faces to measure pulse...")
-                faceFound = faceDetection.searchFace()
+                faceFound = faceDetection.searchFaceViolaJones()
                 if faceFound:
                     print("Face was found!")
                 else:
