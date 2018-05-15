@@ -61,8 +61,10 @@ module.exports = NodeHelper.create({
         const self = this;
         var pirSensor = payload.config.pirSensor;
 
-        if (pirSensor && notification === 'USER_PRESENCE' && sender.name === 'MMM-PIR-Sensor') {
-            console.log('PIR Sensor: True, USER_PRESENCE');
+
+        //if (pirSensor && notification === 'USER_PRESENCE' && sender.name === 'MMM-PIR-Sensor') {
+        if (notification === 'USER_PRESENCE') {
+            console.log("PIR Sensor: True, USER_PRESENCE");
         }
     }
 
