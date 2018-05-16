@@ -19,7 +19,7 @@ module.exports = NodeHelper.create({
         const self = this;
 
         //var childProcess = spawn('python', ["-u", "modules/MMM-Remote-HeartRate-Measurement/counter.py"], {stdio: 'pipe'});
-        var childProcess = spawn('python', ["-u", "modules/MMM-Remote-HeartRate-Measurement/python/ultrasonicSensorTest.py"], {stdio: 'pipe'});
+        var childProcess = spawn('python', ["-u", "modules/MMM-Remote-HeartRate-Measurement/python/faceDetection1.py"], {stdio: 'pipe'});
 
         childProcess.stdout.on('data', (data) => {
             console.log(`${data}`)
@@ -56,9 +56,11 @@ module.exports = NodeHelper.create({
             if (data > 100) {
                 // Sends ultra sonic info to main modul to display it on the mirror
                 self.socketNotificationToModul('US_INFO', 'Come closer to measure your Heart Rate...');
-            } else if (data < 100) {
+            } else {
                 // Sends ultra sonic info to main modul to display it on the mirror
                 self.socketNotificationToModul('US_INFO', 'Checking for faces...');
+                console.log('Starting face detection.');
+                self.start_facedetection()
             }
         });
 
