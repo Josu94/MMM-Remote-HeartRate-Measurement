@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "rpio": "^0.9.21"
+  }
+}

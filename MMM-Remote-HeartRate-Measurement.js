@@ -29,10 +29,8 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
 
     // Sends Socket Notification to node_helper to start the Python process there
     start: function () {
-        if(self.config.ultrasonicSensor) {
-            this.sendSocketNotification('WAITING_FOR_FACE_DETECTION', this.config);
-        } else {
-            //TODO: Wenn kein Ultraschall Sensor vorhanden ist (z.B. auch während der development Phase), muss dauerhaft nach Gesichtern gesucht werden!
+        if(self.config.ultrasonicSensor === false) {
+            this.sendSocketNotification('START_FACE_DETECTION', this.config);
         }
         Log.info('Starting module: ' + this.name);
 
