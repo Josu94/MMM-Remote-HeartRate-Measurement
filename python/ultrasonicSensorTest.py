@@ -48,7 +48,7 @@ def MesseDistanz():
     SignalLaufzeit = StopZeit - StartZeit
     Distanz = (SignalLaufzeit/2) * 34350
 
-    return [Distanz, (SignalLaufzeit*1000/2)]
+    return Distanz
 
 # main function
 def main():

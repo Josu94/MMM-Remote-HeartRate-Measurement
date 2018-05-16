@@ -5,13 +5,11 @@
  * MIT Licensed.
  */
 
-var USSensor = require('ultrasonic-sensor');
-
 Module.register("MMM-Remote-HeartRate-Measurement", {
 
     // Default module config.
     defaults: {
-        heartbeat: 0,
+        textField: 0,
         pirSensor: false,
         ultrasonicSensor: false
     },
@@ -22,7 +20,7 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
         var title = document.createElement("div");
         var heartbeat = document.createElement("div");
         title.innerHTML = this.config.text;
-        heartbeat.innerHTML = this.config.heartbeat;
+        heartbeat.innerHTML = this.config.textField;
         wrapper.appendChild(title);
         wrapper.appendChild(heartbeat);
         return wrapper;
@@ -35,11 +33,6 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
         }
         Log.info('Starting module: ' + this.name);
 
-        // ultrasonic-sensor Library test
-        Log.info('ultrasonic-sensor Library test');
-        Log.info(USSensor(3).cm);
-        // ------------------------------
-
         // Schedule chart update interval.
         // var self = this;
         // setInterval(function () {
@@ -48,9 +41,9 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
     },
 
     socketNotificationReceived: function (notification, payload) {
-        if (notification === 'COUNTER') {
+        if (notification === 'US_INFO') {
             Log.log(payload.toString())
-            this.config.heartbeat = payload.toString()
+            this.config.textField = payload.toString()
             this.updateDom()
         }
         ;
@@ -58,9 +51,10 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
 
     notificationReceived: function (notification, payload, sender) {
         var self = this;
-        if (self.config.pirSensor && self.config.ultrasonicSensor && notification === 'USER_PRESENCE' && sender.name === 'MMM-PIR-Sensor') {
-            Log.log("Object in front of the mirror (< 100 cm)");
+        if (self.config.ultrasonicSensor && notification === 'USER_PRESENCE' && sender.name === 'MMM-PIR-Sensor') {
             //TODO: Face Detection mit Python Code über node_helper aufrufen. -->  this.sendSocketNotification('xxx', this.config);
+            //TODO: Ultraschallsensor mit Python ansteuern
+             this.sendSocketNotification('CHECK_DISTANCE_ULTRASONIC_SENSOR', this.config);
         }
     }
 

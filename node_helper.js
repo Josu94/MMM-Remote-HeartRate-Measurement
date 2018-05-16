@@ -15,11 +15,11 @@ module.exports = NodeHelper.create({
         self.sendSocketNotification(name, data);
     },
 
-    python_start: function () {
+    start_facedetection: function () {
         const self = this;
 
         //var childProcess = spawn('python', ["-u", "modules/MMM-Remote-HeartRate-Measurement/counter.py"], {stdio: 'pipe'});
-        var childProcess = spawn('python', ["-u", "modules/MMM-Remote-HeartRate-Measurement/ultrasonicSensorTest.py"], {stdio: 'pipe'});
+        var childProcess = spawn('python', ["-u", "modules/MMM-Remote-HeartRate-Measurement/python/ultrasonicSensorTest.py"], {stdio: 'pipe'});
 
         childProcess.stdout.on('data', (data) => {
             console.log(`${data}`)
@@ -46,13 +46,52 @@ module.exports = NodeHelper.create({
         }, 5000);
     },
 
+    start_ultrasonic_sensor: function () {
+        const self = this;
+
+        var childProcess = spawn('python', ["-u", "modules/MMM-Remote-HeartRate-Measurement/python/ultrasonicSensorTest.py"], {stdio: 'pipe'});
+
+        childProcess.stdout.on('data', (data) => {
+            console.log(`${data}`)
+            if (data > 100) {
+                // Sends ultra sonic info to main modul to display it on the mirror
+                self.socketNotificationToModul('US_INFO', 'Come closer to measure your Heart Rate...');
+            } else if (data < 100) {
+                // Sends ultra sonic info to main modul to display it on the mirror
+                self.socketNotificationToModul('US_INFO', 'Checking for faces...');
+            }
+        });
+
+        childProcess.on('close', (code) => {
+            console.log(`child process exited with code ${code}`);
+            // process.exit();
+        });
+
+        childProcess.on('exit', function (code, signal) {
+            console.log('child process exited with ' +
+                `code ${code} and signal ${signal}`);
+        });
+
+        childProcess.stderr.on('data', (data) => {
+            console.log(`stderr: ${data}`);
+        });
+    },
+
     // Subclass socketNotificationReceived received.
     socketNotificationReceived: function (notification, payload) {
         if (notification === 'START_FACE_DETECTION') {
             this.config = payload
             if (!pythonStarted) {
                 pythonStarted = true;
-                this.python_start();
+                this.start_facedetection();
+            }
+        }
+
+        else if (notification === 'CHECK_DISTANCE_ULTRASONIC_SENSOR') {
+            this.config = payload
+            if (!pythonStarted) {
+                pythonStarted = true;
+                this.start_facedetection();
             }
         }
     }
