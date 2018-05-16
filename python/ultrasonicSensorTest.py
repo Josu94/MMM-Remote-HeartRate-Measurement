@@ -56,9 +56,9 @@ def main():
         while True:
             Ergebnis = MesseDistanz()
 
-            if Ergebnis[0] > 100:
+            if Ergebnis > 100:
                 print("Come closer to measure your pulse...")
-            elif Ergebnis[0] < 100:
+            elif Ergebnis < 100:
                 print("Searching for faces to measure pulse...")
                 faceFound = faceDetection.searchFaceViolaJones()
                 if faceFound:
