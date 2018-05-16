@@ -28,6 +28,7 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
 
     // Sends Socket Notification to node_helper to start the Python process there
     start: function () {
+        var self = this;
         if (self.config.ultrasonicSensor === false) {
             this.sendSocketNotification('START_FACE_DETECTION', this.config);
         }

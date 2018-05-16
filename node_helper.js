@@ -40,10 +40,10 @@ module.exports = NodeHelper.create({
             console.log(`stderr: ${data}`);
         });
 
-        setTimeout(function () {
-            childProcess.stdin.write('Test stdin Wert');
-            childProcess.stdin.end();
-        }, 5000);
+        // setTimeout(function () {
+        //     childProcess.stdin.write('Test stdin Wert');
+        //     childProcess.stdin.end();
+        // }, 5000);
     },
 
     start_ultrasonic_sensor: function () {
