@@ -5,6 +5,7 @@
  * MIT Licensed.
  */
 
+var USSensor = require('ultrasonic-sensor');
 
 Module.register("MMM-Remote-HeartRate-Measurement", {
 
@@ -29,10 +30,15 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
 
     // Sends Socket Notification to node_helper to start the Python process there
     start: function () {
-        if(self.config.ultrasonicSensor === false) {
+        if (self.config.ultrasonicSensor === false) {
             this.sendSocketNotification('START_FACE_DETECTION', this.config);
         }
         Log.info('Starting module: ' + this.name);
+
+        // ultrasonic-sensor Library test
+        Log.info('ultrasonic-sensor Library test');
+        Log.info(USSensor(3).cm);
+        // ------------------------------
 
         // Schedule chart update interval.
         // var self = this;
@@ -46,7 +52,8 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
             Log.log(payload.toString())
             this.config.heartbeat = payload.toString()
             this.updateDom()
-        };
+        }
+        ;
     },
 
     notificationReceived: function (notification, payload, sender) {
