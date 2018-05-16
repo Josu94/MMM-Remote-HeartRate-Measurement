@@ -91,7 +91,7 @@ module.exports = NodeHelper.create({
             this.config = payload
             if (!pythonStarted) {
                 pythonStarted = true;
-                this.start_facedetection();
+                this.start_ultrasonic_sensor();
             }
         }
     }
