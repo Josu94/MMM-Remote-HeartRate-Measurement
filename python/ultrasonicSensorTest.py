@@ -55,16 +55,7 @@ def main():
     try:
         while True:
             Ergebnis = MesseDistanz()
-
-            if Ergebnis > 100:
-                print("Come closer to measure your pulse...")
-            elif Ergebnis < 100:
-                print("Searching for faces to measure pulse...")
-                faceFound = faceDetection.searchFaceViolaJones()
-                if faceFound:
-                    print("Face was found!")
-                else:
-                    print("No face was found!")
+            print(Ergebnis)
             time.sleep(1)
 
     # reset GPIO settings if user pressed Ctrl+C
