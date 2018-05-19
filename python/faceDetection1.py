@@ -22,12 +22,12 @@ predictor = dlib.shape_predictor(args["shape_predictor"])
 # initialize the video stream and sleep for a bit, allowing the
 # camera sensor to warm up
 print("[INFO] camera sensor warming up...")
-vs = VideoStream(src=0).start()
-# vs = VideoStream(usePiCamera=True).start() # Raspberry Pi
+# vs = VideoStream(src=0).start()
+vs = VideoStream(usePiCamera=True).start()  # Raspberry Pi
 time.sleep(2.0)
 
+# start time of the loop to calculate FPS
 while True:
-    # start time of the loop to calculate FPS
     start_time = time.time()
 
     # loop over the frames from the video stream
@@ -78,7 +78,7 @@ while True:
             if key == ord("q"):
                 break
 
-    # FPS = 1 / time to process loop
+                # FPS = 1 / time to process loop
     fps = (1.0 / (time.time() - start_time))
     print("FPS: ", fps)
     cv2.putText(frame, fps, (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
