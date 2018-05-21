@@ -30,7 +30,7 @@ module.exports = NodeHelper.create({
         if (python_us_pid != null) {
             process.kill(python_us_pid);
             console.log("Process with PID: " + python_us_pid + " was killed.");
-            python_us_pid = null;NodeJSNodeJS
+            python_us_pid = null;
         }
 
         var childProcess = spawn('python',
