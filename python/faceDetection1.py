@@ -7,6 +7,13 @@ import time
 import dlib
 import cv2
 import sys
+import json
+
+
+#Read data from stdin
+def read_in():
+    lines = sys.stdin.readlines()
+    return json.loads(lines[0])
 
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -23,7 +30,14 @@ predictor = dlib.shape_predictor(args["shape_predictor"])
 # initialize the video stream and sleep for a bit, allowing the
 # camera sensor to warm up
 print("[INFO] camera sensor warming up...")
-if sys.argv[4] == True:
+
+# get data as an array from read_in()
+data = read_in()
+print("[INFO] received data from stdin")
+print(data)
+
+# if piCamera is set true in config.js file
+if data:
     vs = VideoStream(usePiCamera=True).start()  # Raspberry Pi Camera
 else:
     vs = VideoStream(src=0).start()

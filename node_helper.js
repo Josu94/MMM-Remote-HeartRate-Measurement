@@ -18,15 +18,16 @@ module.exports = NodeHelper.create({
     start_facedetection: function () {
         const self = this;
 
-        //var childProcess = spawn('python', ["-u", "modules/MMM-Remote-HeartRate-Measurement/counter.py"], {stdio: 'pipe'});
         const options = {
             stdio: 'pipe',
         };
 
         var childProcess = spawn('python',
             ["-u", "modules/MMM-Remote-HeartRate-Measurement/python/faceDetection1.py",
-                "-p", "modules/MMM-Remote-HeartRate-Measurement/shape_predictor_68_face_landmarks.dat"
-                , self.config.piCamera], options);
+                "-p", "modules/MMM-Remote-HeartRate-Measurement/shape_predictor_68_face_landmarks.dat"], options);
+
+        childProcess.stdin.write(JSON.stringify(self.config.piCamera));
+        childProcess.stdin.end();
 
         childProcess.stdout.on('data', (data) => {
             console.log(`${data}`)
