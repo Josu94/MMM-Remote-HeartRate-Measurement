@@ -6,6 +6,7 @@ import imutils
 import time
 import dlib
 import cv2
+import sys
 
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -22,8 +23,10 @@ predictor = dlib.shape_predictor(args["shape_predictor"])
 # initialize the video stream and sleep for a bit, allowing the
 # camera sensor to warm up
 print("[INFO] camera sensor warming up...")
-# vs = VideoStream(src=0).start()
-vs = VideoStream(usePiCamera=True).start()  # Raspberry Pi
+if sys.argv[4] == True:
+    vs = VideoStream(usePiCamera=True).start()  # Raspberry Pi Camera
+else:
+    vs = VideoStream(src=0).start()
 time.sleep(2.0)
 
 # Loop over the frames from video stream and start time of the loop to calculate FPS
