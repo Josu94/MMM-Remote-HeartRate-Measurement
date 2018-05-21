@@ -34,11 +34,11 @@ predictor = dlib.shape_predictor(args["shape_predictor"])
 print("[INFO] camera sensor warming up...")
 
 # if piCamera is set true in config.js file
-# data = read_in()
-# if data:
-#     vs = VideoStream(usePiCamera=True).start()  # Raspberry Pi Camera
-# else:
-vs = VideoStream(src=0).start()
+data = read_in()
+if data:
+    vs = VideoStream(usePiCamera=True).start()  # Raspberry Pi Camera
+else:
+    vs = VideoStream(src=0).start()
 time.sleep(2.0)
 
 # Loop over the frames from video stream and start time of the loop to calculate FPS
