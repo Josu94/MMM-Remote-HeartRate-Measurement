@@ -6,7 +6,10 @@
 var NodeHelper = require('node_helper');
 var spawn = require("child_process").spawn;
 //var spawnSync = require("child_process").spawnSync;
-var pythonStarted = false
+var python_us_started = false;
+var python_us_pid = null;
+var python_fd_started = false;
+var python_fd_pid = null;
 
 
 module.exports = NodeHelper.create({
@@ -21,14 +24,20 @@ module.exports = NodeHelper.create({
 
         const options = {
             stdio: 'pipe',
-	    // use this option if you want to send data to a spawnSync child_process
-    	    // input: JSON.stringify(self.config.piCamera)
+            // use this option if you want to send data to a spawnSync child_process
+            // input: JSON.stringify(self.config.piCamera)
         };
 
         var childProcess = spawn('python',
             ["-u", "modules/MMM-Remote-HeartRate-Measurement/python/faceDetection1.py",
                 "-p", "modules/MMM-Remote-HeartRate-Measurement/shape_predictor_68_face_landmarks.dat"], options);
 
+        // Some loging and find out the pid of the spawned process
+        python_fd_started = true;
+        console.log(`Spawned python script "facedetection" pid: ${childProcess.pid}`);
+        python_fd_pid = childProcess.pid;
+
+        // Send info to python script, if a piCamera is used or not
         childProcess.stdin.write(JSON.stringify(self.config.piCamera));
         childProcess.stdin.end();
 
@@ -62,6 +71,9 @@ module.exports = NodeHelper.create({
         var counter = 0;
 
         var childProcess = spawn('python', ["-u", "modules/MMM-Remote-HeartRate-Measurement/python/ultrasonicSensorTest.py"], {stdio: 'pipe'});
+        python_us_started = true;
+        console.log(`Spawned python script "ultrasonicSensor" pid: ${childProcess.pid}`);
+        python_us_pid = childProcess.pid;
 
         childProcess.stdout.on('data', (data) => {
             console.log(`${data}`)
@@ -100,16 +112,14 @@ module.exports = NodeHelper.create({
     socketNotificationReceived: function (notification, payload) {
         if (notification === 'START_FACE_DETECTION') {
             this.config = payload
-            if (!pythonStarted) {
-                pythonStarted = true;
+            if (!python_us_started) {
                 this.start_facedetection();
             }
         }
 
         else if (notification === 'CHECK_DISTANCE_ULTRASONIC_SENSOR') {
             this.config = payload
-            if (!pythonStarted) {
-                pythonStarted = true;
+            if (!python_us_started) {
                 this.start_ultrasonic_sensor();
             }
         }
