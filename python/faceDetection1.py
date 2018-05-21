@@ -35,6 +35,7 @@ print("[INFO] camera sensor warming up...")
 data = read_in()
 print("[INFO] received data from stdin")
 print(data)
+print(type(data))
 
 # if piCamera is set true in config.js file
 if data:

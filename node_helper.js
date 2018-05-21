@@ -5,6 +5,7 @@
 'use strict';
 var NodeHelper = require('node_helper');
 var spawn = require("child_process").spawn;
+//var spawnSync = require("child_process").spawnSync;
 var pythonStarted = false
 
 
@@ -20,6 +21,8 @@ module.exports = NodeHelper.create({
 
         const options = {
             stdio: 'pipe',
+	    // use this option if you want to send data to a spawnSync child_process
+    	    // input: JSON.stringify(self.config.piCamera)
         };
 
         var childProcess = spawn('python',
