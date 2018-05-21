@@ -52,6 +52,7 @@ module.exports = NodeHelper.create({
 
     start_ultrasonic_sensor: function () {
         const self = this;
+	var counter = 0;
 
         var childProcess = spawn('python', ["-u", "modules/MMM-Remote-HeartRate-Measurement/python/ultrasonicSensorTest.py"], {stdio: 'pipe'});
 
@@ -59,12 +60,17 @@ module.exports = NodeHelper.create({
             console.log(`${data}`)
             if (data > 100) {
                 // Sends ultra sonic info to main modul to display it on the mirror
+		counter = 0;
                 self.socketNotificationToModul('US_INFO', 'Come closer to measure your Heart Rate...');
             } else {
-                // Sends ultra sonic info to main modul to display it on the mirror
-                self.socketNotificationToModul('US_INFO', 'Checking for faces...');
-                console.log('Starting face detection.');
-                self.start_facedetection()
+		counter += 1;
+		if (counter === 3) {
+			counter = 0;
+                	// Sends ultra sonic info to main modul to display it on the mirror
+                	self.socketNotificationToModul('US_INFO', 'Checking for faces...');
+                	console.log('Starting face detection.');
+                	self.start_facedetection();
+		}
             }
         });
 
