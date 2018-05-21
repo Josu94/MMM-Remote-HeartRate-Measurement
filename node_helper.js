@@ -24,9 +24,14 @@ module.exports = NodeHelper.create({
 
         const options = {
             stdio: 'pipe',
-            // use this option if you want to send data to a spawnSync child_process
-            // input: JSON.stringify(self.config.piCamera)
+            // input: JSON.stringify(self.config.piCamera)      // use this option if you want to send data to a spawnSync child_process
         };
+
+        if (python_us_pid != null) {
+            process.kill(python_us_pid);
+            console.log("Process with PID: " + python_us_pid + " was killed.");
+            python_us_pid = null;
+        }
 
         var childProcess = spawn('python',
             ["-u", "modules/MMM-Remote-HeartRate-Measurement/python/faceDetection1.py",
