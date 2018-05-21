@@ -9,6 +9,8 @@ import cv2
 import sys
 import json
 
+found_no_face_counter = 0
+fd_stop_criterion = 50
 
 #Read data from stdin
 def read_in():
@@ -32,15 +34,15 @@ predictor = dlib.shape_predictor(args["shape_predictor"])
 print("[INFO] camera sensor warming up...")
 
 # if piCamera is set true in config.js file
-data = read_in()
-if data:
-    vs = VideoStream(usePiCamera=True).start()  # Raspberry Pi Camera
-else:
-    vs = VideoStream(src=0).start()
+# data = read_in()
+# if data:
+#     vs = VideoStream(usePiCamera=True).start()  # Raspberry Pi Camera
+# else:
+vs = VideoStream(src=0).start()
 time.sleep(2.0)
 
 # Loop over the frames from video stream and start time of the loop to calculate FPS
-while True:
+while found_no_face_counter < fd_stop_criterion:
     start_time = time.time()
 
     # grab the frame from the threaded video stream, resize it to
@@ -56,6 +58,7 @@ while True:
     # check to see if a face was detected, and if so, draw the total
     # number of faces on the frame
     if len(rects) > 0:
+        found_no_face_counter = 0
         text = "{} face(s) found".format(len(rects))
         cv2.putText(frame, text, (10, 20), cv2.FONT_HERSHEY_SIMPLEX,
                     0.5, (0, 0, 255), 2)
@@ -86,6 +89,9 @@ while True:
         if key == ord("q"):
             break
 
+    else:
+        found_no_face_counter += 1
+
     # FPS = 1 / time to process loop
     fps = (1.0 / (time.time() - start_time))
     print("FPS: ", fps)
@@ -98,4 +104,6 @@ while True:
 # do a bit of cleanup
 cv2.destroyAllWindows()
 vs.stop()
+# terminates the python scripts
+quit()
 
