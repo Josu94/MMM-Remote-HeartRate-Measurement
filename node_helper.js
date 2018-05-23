@@ -47,13 +47,24 @@ module.exports = NodeHelper.create({
         childProcess.stdin.end();
 
         childProcess.stdout.on('data', (data) => {
-            console.log(`${data}`)
-            self.socketNotificationToModul('COUNTER', `${data}`);
+            // console.log('**************')
+            // console.log(`${data}`)
+            //TODO: Display on MMM if face was found...
+            //TODO: Find a way how to communicate between Nodejs and Python via JSON
+            var obj = JSON.parse(data);
+            if (obj.FACE_FOUND) {
+                console.log(obj.FACE_FOUND + ' Face was found.');
+                self.socketNotificationToModul('FD_INFO', obj.FACE_FOUND + ' Face was found.');
+            } else if (obj.FPS) {
+                console.log('FPS: ' + obj.FPS);
+                self.socketNotificationToModul('FD_INFO_FPS', 'FPS: ' + obj.FPS);
+            }
         });
 
         childProcess.on('close', (code) => {
             console.log(`child process exited with code ${code}`);
-            // process.exit();
+            //TODO: Face Detection abgeschlossen --> Mit Ultraschallsensor erneut prüfen, ob sich eine Person vor dem Spiegel befindet.
+
         });
 
         childProcess.on('exit', function (code, signal) {

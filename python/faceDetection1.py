@@ -25,13 +25,15 @@ args = vars(ap.parse_args())
 
 # initialize dlib's face detector (HOG-based) and then create the
 # facial landmark predictor
-print("[INFO] loading facial landmark predictor...")
+# print("[INFO] loading facial landmark predictor...")
+print(json.dumps({"INFO":"loading facial landmark predictor..."}))
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(args["shape_predictor"])
 
 # initialize the video stream and sleep for a bit, allowing the
 # camera sensor to warm up
-print("[INFO] camera sensor warming up...")
+# print("[INFO] camera sensor warming up...")
+print(json.dumps({"INFO":"camera sensor warming up..."}))
 
 # if piCamera is set true in config.js file
 data = read_in()
@@ -58,6 +60,9 @@ while found_no_face_counter < fd_stop_criterion:
     # check to see if a face was detected, and if so, draw the total
     # number of faces on the frame
     if len(rects) > 0:
+        # display on mirror if face was found
+        print(json.dumps({"FACE_FOUND": len(rects)}))
+
         found_no_face_counter = 0
         text = "{} face(s) found".format(len(rects))
         cv2.putText(frame, text, (10, 20), cv2.FONT_HERSHEY_SIMPLEX,
@@ -91,10 +96,13 @@ while found_no_face_counter < fd_stop_criterion:
 
     else:
         found_no_face_counter += 1
+        print(json.dumps({"FACE_FOUND": "0"}))
 
     # FPS = 1 / time to process loop
     fps = (1.0 / (time.time() - start_time))
-    print("FPS: ", fps)
+    # print("FPS: ", fps)
+    # print(json.dumps({"FPS": fps}))
+
     cv2.putText(frame, 'fps: {0}'.format(fps), (10, 280),
     		 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
@@ -105,5 +113,5 @@ while found_no_face_counter < fd_stop_criterion:
 cv2.destroyAllWindows()
 vs.stop()
 # terminates the python scripts
-quit()
+sys.exit()
 

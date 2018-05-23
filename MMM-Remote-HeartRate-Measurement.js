@@ -46,8 +46,11 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
             Log.log(payload.toString())
             this.config.textField = payload.toString()
             this.updateDom()
+        } else if (notification === 'FD_INFO') {
+            Log.log(payload.toString())
+            this.config.textField = payload.toString()
+            this.updateDom()
         }
-        ;
     },
 
     notificationReceived: function (notification, payload, sender) {
