@@ -64,6 +64,10 @@ module.exports = NodeHelper.create({
             //TODO: Face Detection abgeschlossen --> Mit Ultraschallsensor erneut prüfen, ob sich eine Person vor dem Spiegel befindet.
             console.log('[INFO] Stopped face detection.')
             self.socketNotificationToModul('FD_INFO', 'Stopped face detection.');
+            // no Ultrasnic Sensor
+            if (self.config.ultrasonicSensor === false) {
+                this.start_facedetection();
+            }
         });
 
         childProcess.on('exit', function (code, signal) {

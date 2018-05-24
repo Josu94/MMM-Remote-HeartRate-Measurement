@@ -35,7 +35,7 @@ predictor = dlib.shape_predictor(args["shape_predictor"])
 # print("[INFO] camera sensor warming up...")
 print(json.dumps({"INFO":"camera sensor warming up..."}))
 
-# if piCamera is set true in config.js file
+# check stdin if piCamera is set to 'true' in config.js file
 data = read_in()
 if data:
     vs = VideoStream(usePiCamera=True).start()  # Raspberry Pi Camera
