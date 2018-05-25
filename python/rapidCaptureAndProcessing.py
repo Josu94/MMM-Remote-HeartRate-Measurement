@@ -1,6 +1,7 @@
 import time
 import picamera
 
+print('rapidCaptureAndProcessing.py has been started.')
 frames = 60
 
 def filenames():

@@ -19,6 +19,43 @@ module.exports = NodeHelper.create({
         self.sendSocketNotification(name, data);
     },
 
+    start_rapidCapture: function () {
+        const self = this;
+
+        const options = {
+            stdio: 'pipe'
+        }
+
+        // TODO: Starting rapidCaptureAndProcessing. For first prototype save pictures for 60 seconds with 30fps --> 1800 pictures
+        // TODO: Add option to config recording/pulse meassuring time manually
+        // childProcess.stdin.write(JSON.stringify(self.config.piCamera));
+        // childProcess.stdin.end();
+
+        // Starting python process to save pictures from camera stream to Raspi SD-Card
+        var childProcess = spawn('python',
+            ["-u", "modules/MMM-Remote-HeartRate-Measurement/python/rapidCaptureAndProcessing.py"], options);
+
+        childProcess.stdout.on('data', (data) => {
+            print(data.toString())
+        });
+
+        childProcess.on('close', (code) => {
+            console.log(`child process faceDetection exited with code ${code}`);
+            //TODO: Face Detection abgeschlossen --> Mit Ultraschallsensor erneut prüfen, ob sich eine Person vor dem Spiegel befindet.
+            console.log('[INFO] Stopped face detection.')
+            self.socketNotificationToModul('FD_INFO', 'Stopped face detection.');
+        });
+
+        childProcess.on('exit', function (code, signal) {
+            console.log('child process exited with ' +
+                `code ${code} and signal ${signal}`);
+        });
+
+        childProcess.stderr.on('data', (data) => {
+            console.log(`stderr: ${data}`);
+        });
+    },
+
     start_facedetection: function () {
         const self = this;
 
@@ -33,11 +70,8 @@ module.exports = NodeHelper.create({
             python_us_pid = null;
         }
 
-        // TODO: Starting rapidCaptureAndProcessing. For first prototype save pictures for 60 seconds with 30fps --> 1800 pictures
-        // Starting python process to save pictures from camera stream to Raspi SD-Card
-        // TODO: Add option to config recording/pulse meassuring time manually
-        var childProcess = spawn('python',
-            ["-u", "modules/MMM-Remote-HeartRate-Measurement/python/rapidCaptureAndProcessing.py"], options);
+        // Starting rapidCaptureAndProcessing. For first prototype save pictures for 60 seconds with 30fps --> 1800 pictures
+        this.start_rapidCapture()
 
         // TODO: Change existing programm (faceDetection1.py) to load pictures from SD-Card, and not directly from live stream!
         // Starting python process to recognise faces and detect facial landmarks
@@ -110,8 +144,10 @@ module.exports = NodeHelper.create({
                     counter = 0;
                     // Sends ultra sonic info to main modul to display it on the mirror
                     self.socketNotificationToModul('US_INFO', 'Checking for faces...');
-                    console.log('Starting face detection.');
-                    self.start_facedetection();
+                    // console.log('Starting face detection.');
+                    // self.start_facedetection();
+                    console.log('Starting rapidCapture.');
+                    self.start_rapidCapture();
                 }
             }
         });
