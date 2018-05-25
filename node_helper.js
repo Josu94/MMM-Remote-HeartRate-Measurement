@@ -25,7 +25,7 @@ module.exports = NodeHelper.create({
         const options = {
             stdio: 'pipe',
             // input: JSON.stringify(self.config.piCamera)      // use this option if you want to send data to a spawnSync child_process
-        };
+        }
 
         if (python_us_pid != null) {
             process.kill(python_us_pid);
@@ -33,6 +33,14 @@ module.exports = NodeHelper.create({
             python_us_pid = null;
         }
 
+        // TODO: Starting rapidCaptureAndProcessing. For first prototype save pictures for 60 seconds with 30fps --> 1800 pictures
+        // Starting python process to save pictures from camera stream to Raspi SD-Card
+        // TODO: Add option to config recording/pulse meassuring time manually
+        var childProcess = spawn('python',
+            ["-u", "modules/MMM-Remote-HeartRate-Measurement/python/rapidCaptureAndProcessing.py"], options);
+
+        // TODO: Change existing programm (faceDetection1.py) to load pictures from SD-Card, and not directly from live stream!
+        // Starting python process to recognise faces and detect facial landmarks
         var childProcess = spawn('python',
             ["-u", "modules/MMM-Remote-HeartRate-Measurement/python/faceDetection1.py",
                 "-p", "modules/MMM-Remote-HeartRate-Measurement/shape_predictor_68_face_landmarks.dat"], options);
