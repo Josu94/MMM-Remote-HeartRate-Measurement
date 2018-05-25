@@ -36,7 +36,7 @@ module.exports = NodeHelper.create({
             ["-u", "modules/MMM-Remote-HeartRate-Measurement/python/rapidCaptureAndProcessing.py"], options);
 
         childProcess.stdout.on('data', (data) => {
-            print(data.toString())
+            console.log(`${data}`)
         });
 
         childProcess.on('close', (code) => {
