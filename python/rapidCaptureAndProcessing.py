@@ -2,12 +2,20 @@
 import cv2
 import time
 import threading
+import argparse
+import dlib
+from imutils import face_utils
+from imutils.video import VideoStream
+from multiprocessing import Queue
 
 # Camera settings go here
-imageWidth = 320
-imageHeight = 240
-frameRate = 24
+imageWidth = 640
+imageHeight = 480
+frameRate = 20
 processingThreads = 4
+processingFrames = 40
+global frameCounter
+frameCounter = 0
 
 # Shared values
 global running
@@ -16,6 +24,8 @@ global frameLock
 global processorPool
 running = True
 frameLock = threading.Lock()
+global queue
+queue = Queue()
 
 # Setup the camera
 cap = cv2.VideoCapture(0)
@@ -24,12 +34,24 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, imageHeight);
 cap.set(cv2.CAP_PROP_FPS, frameRate);
 if not cap.isOpened():
     cap.open()
+# cap = VideoStream(usePiCamera=False, resolution=(imageWidth,imageHeight), framerate=frameRate).start()
+time.sleep(1.0)
+
+# construct the argument parser and parse the arguments
+ap = argparse.ArgumentParser()
+ap.add_argument("-p", "--shape-predictor", required=True,
+                help="path to facial landmark predictor")
+args = vars(ap.parse_args())
+
+# initialize dlib's face detector (HOG-based) and then create the facial landmark predictor
+detector = dlib.get_frontal_face_detector()
+predictor = dlib.shape_predictor(args["shape_predictor"])
 
 
 # Image processing thread, self-starting
-class ImageProcessor(threading.Thread):
+class ImageQueueing(threading.Thread):
     def __init__(self, name, autoRun=True):
-        super(ImageProcessor, self).__init__()
+        super(ImageQueueing, self).__init__()
         self.event = threading.Event()
         self.eventWait = (2.0 * processingThreads) / frameRate
         self.name = str(name)
@@ -48,7 +70,7 @@ class ImageProcessor(threading.Thread):
                 if not running:
                     break
                 try:
-                    self.ProcessImage(self.nextFrame)
+                    self.queue_image(self.nextFrame, self.nextFrameName)
                 finally:
                     # Reset the event
                     self.nextFrame = None
@@ -58,12 +80,12 @@ class ImageProcessor(threading.Thread):
                         processorPool.insert(0, self)
         print('Processor thread %s terminated' % (self.name))
 
-    def ProcessImage(self, image):
-        # Processing for each image goes here
+    def queue_image(self, image, name):
 
-        gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        fileName = 'video/image%10.4f.jpg' % time.time()
-        cv2.imwrite(fileName, gray_image)
+        # First put image to queue then the Name (timestamp) for the image
+        global queue
+        queue.put(image)
+
 
 # Image capture thread, self-starting
 class ImageCapture(threading.Thread):
@@ -78,6 +100,7 @@ class ImageCapture(threading.Thread):
         global cap
         global processorPool
         global frameLock
+        global frameCounter
         while running:
             # Grab the oldest unused processor thread
             with frameLock:
@@ -86,13 +109,19 @@ class ImageCapture(threading.Thread):
                 else:
                     processor = None
             if processor:
-                # Grab the next frame and send it to the processor
-                success, frame = cap.read()
-                if success:
-                    processor.nextFrame = frame
-                    processor.event.set()
+                if frameCounter <= processingFrames:
+                    # Grab the next frame and send it to the processor
+                    success, frame = cap.read()
+                    # frame = cap.read()
+                    frameCounter = frameCounter + 1
+                    if success:
+                        processor.nextFrame = frame
+                        processor.nextFrameName = 'video/image%10.4f.jpg' % time.time()
+                        processor.event.set()
+                    else:
+                        print('Capture stream lost...')
+                        running = False
                 else:
-                    print('Capture stream lost...')
                     running = False
             else:
                 # When the pool is starved we wait a while to allow a processor to finish
@@ -100,10 +129,69 @@ class ImageCapture(threading.Thread):
         print('Capture thread terminated')
 
 
+# FIFO queue processing Thread, self-starting
+class QueueProcessing(threading.Thread):
+    def __init__(self, queue):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self.queue = queue
+        self.start()
+
+    # Check if queue has entries, if yes process them
+    def run(self):
+        time.sleep(2)
+        while True:
+            ############### Processing for each image in queue goes here #####################
+
+            if not queue.empty():
+                image = queue.get()
+                # Find face in frame and compute facial landmarks
+                gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+                # Detect faces in the grayscale frame
+                global detector
+                rects = detector(gray_image, 0)
+
+                # loop over the face detections
+                global predictor
+                for rect in rects:
+                    # compute the bounding box of the face and draw it on the
+                    # frame
+                    (bX, bY, bW, bH) = face_utils.rect_to_bb(rect)
+                    cv2.rectangle(image, (bX, bY), (bX + bW, bY + bH),
+                                  (0, 255, 0), 1)
+
+                    # determine the facial landmarks for the face region, then
+                    # convert the facial landmark (x, y)-coordinates to a NumPy
+                    # array
+                    shape = predictor(gray_image, rect)
+                    shape = face_utils.shape_to_np(shape)
+
+                    # loop over the (x, y)-coordinates for the facial landmarks
+                    # and draw each of them
+                    for (i, (x, y)) in enumerate(shape):
+                        cv2.circle(image, (x, y), 1, (0, 0, 255), -1)
+                        # print('Nr.%d: x:%d, y:%d' % (i, x, y))
+                        cv2.putText(image, str(i + 1), (x - 10, y - 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
+
+                # Dump ndarray frames to disk as .jpg picture
+                fileName = 'video/image%10.4f.jpg' % time.time()
+                cv2.imwrite(filename=fileName, img=image)
+
+            else:
+                print('LOG: FIFO Queue is empty')
+                break
+
+            ##################################################################################
+        print('QueueProcessing thread terminated')
+
+
 # Create some threads for processing and frame grabbing
-processorPool = [ImageProcessor(i + 1) for i in range(processingThreads)]
+processorPool = [ImageQueueing(i + 1) for i in range(processingThreads)]
 allProcessors = processorPool[:]
 captureThread = ImageCapture()
+queueProcessingThread = QueueProcessing(queue)
 
 # Main loop, basically waits until you press CTRL+C
 # The captureThread gets the frames and passes them to an unused processing thread
@@ -130,6 +218,9 @@ while allProcessors:
 
 # Cleanup the capture thread
 captureThread.join()
+
+# Cleanup the queueProcessing thread
+queueProcessingThread.join()
 
 # Cleanup the camera object
 cap.release()
