@@ -170,19 +170,7 @@ class QueueProcessing(threading.Thread):
                 frame_ycbcr = skin_pixel_detection.convert_bgr_to_ycbcr(crop_image)
 
                 # Calculate skinpixel matrix1
-                skinpixel_matrix = skin_pixel_detection.get_skinpixel_matrix_1(frame_argb, frame_hsv, frame_ycbcr)
-
-                # Draw the result on the screen
-                counter = 0
-                for (x, y, z), value in np.ndenumerate(crop_image):
-                    if skinpixel_matrix[x][y] == False:
-                        crop_image[x][y] = 0
-                        counter = counter + 1
-
-                print(counter)
-                # cv.imshow('frame: argb', frame)
-                fileName = 'video/image%10.4f.jpg' % time.time()
-                cv2.imwrite(filename=fileName, img=crop_image)
+                skinpixel_matrix = skin_pixel_detection.get_skinpixel_matrix_1(crop_image, frame_argb, frame_hsv, frame_ycbcr, saveFrames=False)
 
             else:
                 print('LOG: FIFO Queue is empty')

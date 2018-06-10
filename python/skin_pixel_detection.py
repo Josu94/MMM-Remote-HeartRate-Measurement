@@ -1,5 +1,6 @@
 import cv2 as cv
 import numpy as np
+import time
 
 # Convert BGR into ARGB format
 def convert_bgr_to_argb(frame):
@@ -27,9 +28,9 @@ def convert_bgr_to_ycbcr(frame):
 
 
 # Calculate skinpixel matrix (boolean values), based on predefined rules: https://arxiv.org/pdf/1708.02694.pdf
-def get_skinpixel_matrix_1(argb, hsv, ycbcr):
-    # Create skinpixel matrix
-    skinpixel_matrix = np.zeros((argb.shape[0], argb.shape[1]), dtype=bool)
+def get_skinpixel_matrix_1(image, argb, hsv, ycbcr, saveFrames=False):
+    # Create skinmask (in a new nparray, label each pixel with True or False)
+    skinmask = np.zeros((image.shape[0], image.shape[1]), dtype=bool)
 
     # Slice HSV array
     h = hsv[:, :, 0]
@@ -46,9 +47,8 @@ def get_skinpixel_matrix_1(argb, hsv, ycbcr):
     cb = ycbcr[:, :, 2]
     cr = ycbcr[:, :, 1]
 
-    # Loop over skinpixel matrix:
-    # skinpixel_matrix[719][1279] = 1
-    for (x, y), value in np.ndenumerate(skinpixel_matrix):
+    # Loop over skinmask matrix:
+    for (x, y), value in np.ndenumerate(skinmask):
         h_value = h[x][y]
         s_value = s[x][y]
         r_value = r[x][y]
@@ -78,9 +78,26 @@ def get_skinpixel_matrix_1(argb, hsv, ycbcr):
         #if 0 <= h_value <= 50 and 23 <= s_value <= 68 and r_value > 95 and g_value > 40 and b_value > 20 and r_value > g_value and r_value > b_value and (
         #             r_value - g_value) > 15 and a_value > 15:
 
-            skinpixel_matrix[x][y] = True
+            skinmask[x][y] = True
+
         else:
-            skinpixel_matrix[x][y] = False
+            skinmask[x][y] = False
+
+    # If xxx Flag is set, draw result on picture and save it on disk
+    if saveFrames:
+        for (x, y, z), value in np.ndenumerate(image):
+            if skinmask[x][y] == False:
+                image[x][y] = 0
+
+        # cv.imshow('frame: argb', frame)
+        fileName = 'video/image%10.4f.jpg' % time.time()
+        cv.imwrite(filename=fileName, img=image)
+
+    # Change Axis from image
+    image_ = image.transpose((-1, 0, 1))
+
+    # Get skinpixel Matrix
+    skin_pixels = image_[:, skinmask]
 
     print('INFO: Calculation skinpixel matrix ready...')
-    return skinpixel_matrix
+    return skin_pixels
