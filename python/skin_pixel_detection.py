@@ -1,15 +1,5 @@
 import cv2 as cv
 import numpy as np
-import time
-
-#cap = cv.VideoCapture(0)
-
-#ret, frame = cap.read()
-
-#cv.imshow('frame', frame)
-
-#frame = cv.imread('image.jpg', 1)
-
 
 # Convert BGR into ARGB format
 def convert_bgr_to_argb(frame):
@@ -78,11 +68,13 @@ def get_skinpixel_matrix_1(argb, hsv, ycbcr):
                             (0.3448 * cb_value) + 76.2069) and cr_value >= (
                     (-4.5652 * cb_value) + 234.5652) and cr_value <= (
                             (-1.15 * cb_value) + 301.75) and cr_value <= ((-2.2857 * cb_value) + 432.85):
+
         #if r_value > 95 and g_value > 40 and b_value > 20 and r_value > g_value and r_value > b_value and (
         #             r_value - g_value) > 15 and a_value > 15 and cr_value > 135 and cb_value > 85 and y_value > 80 \
         #                 and cr_value <= ((1.5862 * cb_value) + 20) and cr_value >= (
         #             (0.3448 * cb_value) + 76.2069) and cr_value >= ((-4.5652 * cb_value) + 234.5652) and cr_value <= (
         #             (-1.15 * cb_value) + 301.75) and cr_value <= ((-2.2857 * cb_value) + 432.85):
+
         #if 0 <= h_value <= 50 and 23 <= s_value <= 68 and r_value > 95 and g_value > 40 and b_value > 20 and r_value > g_value and r_value > b_value and (
         #             r_value - g_value) > 15 and a_value > 15:
 
@@ -92,31 +84,3 @@ def get_skinpixel_matrix_1(argb, hsv, ycbcr):
 
     print('INFO: Calculation skinpixel matrix ready...')
     return skinpixel_matrix
-
-
-# Converting different colourspaces needed for calculating skinpixel matrix
-#frame_argb = convert_bgr_to_argb(frame)
-#frame_hsv = convert_bgr_to_hsv(frame)
-#frame_ycbcr = convert_bgr_to_ycbcr(frame)
-
-# cv.imshow('frame: argb', frame_argb)
-# cv.imshow('frame: hsv', frame_hsv)
-
-# Calculate skinpixel matrix1
-#skinpixel_matrix = get_skinpixel_matrix_1(frame_argb, frame_hsv, frame_ycbcr)
-
-# Draw the result on the screen
-#counter = 0
-#for (x, y, z), value in np.ndenumerate(frame):
-#    if skinpixel_matrix[x][y] == False:
-#        frame[x][y] = 0
-#        counter = counter + 1
-
-#print(counter)
-#cv.imshow('frame: argb', frame)
-#fileName = 'video/image%10.4f.jpg' % time.time()
-#cv.imwrite(filename=fileName, img=frame)
-
-#cap.release()
-#cv.waitKey(0)
-#cv.destroyAllWindows()
