@@ -172,6 +172,9 @@ class QueueProcessing(threading.Thread):
                 # Calculate skinpixel matrix1
                 skinpixel_matrix = skin_pixel_detection.get_skinpixel_matrix_1(crop_image, frame_argb, frame_hsv, frame_ycbcr, saveFrames=False)
 
+                # Get eigenvalues and eigenvectors
+                eigenvalues, eigenvectors = skin_pixel_detection.get_eigenvalues_and_eigenvectors(skinpixel_matrix)
+
             else:
                 print('LOG: FIFO Queue is empty')
                 break

@@ -101,3 +101,17 @@ def get_skinpixel_matrix_1(image, argb, hsv, ycbcr, saveFrames=False):
 
     print('INFO: Calculation skinpixel matrix ready...')
     return skin_pixels
+
+
+# Build C-Matrix, get eigenvalue and eigenvectors, sort them
+def get_eigenvalues_and_eigenvectors(skin_pixels):
+    # build the correlation matrix
+    c = np.dot(skin_pixels, skin_pixels.T)
+    c = c / skin_pixels.shape[1]
+
+    # get eigenvectors and sort them according to eigenvalues (largest first)
+    evals, evecs = np.linalg.eig(c)
+    idx = evals.argsort()[::-1]
+    eigenvalues = evals[idx]
+    eigenvectors = evecs[:, idx]
+    return eigenvalues, eigenvectors
