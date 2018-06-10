@@ -4,16 +4,17 @@ import time
 import threading
 import argparse
 import dlib
-from imutils import face_utils
-from imutils.video import VideoStream
+import skin_pixel_detection
+import numpy as np
 from multiprocessing import Queue
+from imutils import face_utils
 
 # Camera settings go here
 imageWidth = 640
 imageHeight = 480
 frameRate = 20
 processingThreads = 4
-processingFrames = 40
+processingFrames = 20
 global frameCounter
 frameCounter = 0
 
@@ -144,46 +145,50 @@ class QueueProcessing(threading.Thread):
             ############### Processing for each image in queue goes here #####################
 
             if not queue.empty():
+                # Get the last frame from the queue
                 image = queue.get()
-                # Find face in frame and compute facial landmarks
-                gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-                # Detect faces in the grayscale frame
+                # Convert image to grayscale
+                frame_grey = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+                # Get bounding box arround the face
                 global detector
-                rects = detector(gray_image, 0)
-
-                # loop over the face detections
-                global predictor
+                rects = detector(frame_grey, 0)
                 for rect in rects:
-                    # compute the bounding box of the face and draw it on the
-                    # frame
+                    # compute the bounding box of the face
                     (bX, bY, bW, bH) = face_utils.rect_to_bb(rect)
-                    cv2.rectangle(image, (bX, bY), (bX + bW, bY + bH),
-                                  (0, 255, 0), 1)
 
-                    # determine the facial landmarks for the face region, then
-                    # convert the facial landmark (x, y)-coordinates to a NumPy
-                    # array
-                    shape = predictor(gray_image, rect)
-                    shape = face_utils.shape_to_np(shape)
+                    # Draw rectangle of BoundingBox to the image
+                    # cv2.rectangle(image, (bX, bY), (bX + bW, bY + bH), (0, 255, 0), 1)
 
-                    # loop over the (x, y)-coordinates for the facial landmarks
-                    # and draw each of them
-                    for (i, (x, y)) in enumerate(shape):
-                        cv2.circle(image, (x, y), 1, (0, 0, 255), -1)
-                        # print('Nr.%d: x:%d, y:%d' % (i, x, y))
-                        cv2.putText(image, str(i + 1), (x - 10, y - 10),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
+                # Crop the image
+                crop_image = image[bY:bY + bH, bX:bX + bW]
 
-                # Dump ndarray frames to disk as .jpg picture
+                # Converting image into different colourspaces for calculating the skinpixel matrix1
+                frame_argb = skin_pixel_detection.convert_bgr_to_argb(crop_image)
+                frame_hsv = skin_pixel_detection.convert_bgr_to_hsv(crop_image)
+                frame_ycbcr = skin_pixel_detection.convert_bgr_to_ycbcr(crop_image)
+
+                # Calculate skinpixel matrix1
+                skinpixel_matrix = skin_pixel_detection.get_skinpixel_matrix_1(frame_argb, frame_hsv, frame_ycbcr)
+
+                # Draw the result on the screen
+                counter = 0
+                for (x, y, z), value in np.ndenumerate(crop_image):
+                    if skinpixel_matrix[x][y] == False:
+                        crop_image[x][y] = 0
+                        counter = counter + 1
+
+                print(counter)
+                # cv.imshow('frame: argb', frame)
                 fileName = 'video/image%10.4f.jpg' % time.time()
-                cv2.imwrite(filename=fileName, img=image)
+                cv2.imwrite(filename=fileName, img=crop_image)
 
             else:
                 print('LOG: FIFO Queue is empty')
                 break
 
-            ##################################################################################
+                ##################################################################################
         print('QueueProcessing thread terminated')
 
 
