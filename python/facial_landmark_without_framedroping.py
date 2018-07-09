@@ -4,9 +4,12 @@ import time
 import threading
 import argparse
 import dlib
-import skin_pixel_detection
+# import skin_pixel_detection
 import numpy as np
+import imutils
+import csv
 # import matplotlib.pyplot as plt
+from matplotlib.path import Path
 from multiprocessing import Queue
 from imutils import face_utils
 from scipy import signal
@@ -14,11 +17,14 @@ from scipy.signal import butter, lfilter, freqz
 from datetime import datetime
 
 # Camera settings go here
-imageWidth = 640
-imageHeight = 480
+# imageWidth = 640
+# imageHeight = 480
+imageWidth = 1296
+imageHeight = 730
 frameRate = 20
 processingThreads = 4
-totalFrameNumber = 100
+totalFrameNumber = 1250
+
 temporal_stride = 20
 global frameCounter
 frameCounter = 0
@@ -49,11 +55,12 @@ if not cap.isOpened():
 # cap = VideoStream(usePiCamera=False, resolution=(imageWidth,imageHeight), framerate=frameRate).start()
 time.sleep(1.0)
 
-detector = skin_pixel_detection.detector
 print('INFO: Load dlibs face detector.')
-# predictor = skin_pixel_detection.predictor
-predictor = dlib.shape_predictor('../shape_predictor_5_face_landmarks.dat')
+detector = dlib.get_frontal_face_detector()
+
 print('INFO: Load dlibs face predictor (facial landmarks).')
+predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
+
 
 # storage for mean values
 mean_values = np.zeros(1250, dtype='float64')
@@ -149,44 +156,90 @@ def facial_landmarks_plus_mean_hue():
         ############### Processing for each image in queue goes here #####################
 
         if not queue_frame.empty():
+            # start time for calculating FPS
+            start = time.time()
+
             # Get the last frame from the queue
-            image = queue_frame.get()
+            frame = queue_frame.get()
+            frame = imutils.resize(frame, width=400)
 
-            # Convert image to grayscale
-            frame_grey = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            # convert image to grayscale
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            # # Get bounding box arround the face
-            # global detector
-            # rects = detector(frame_grey, 0)
-            # for rect in rects:
-            #     # compute the bounding box of the face
-            #     (bX, bY, bW, bH) = face_utils.rect_to_bb(rect)
-            #
-            #     # Draw rectangle of BoundingBox to the image
-            #     # cv2.rectangle(image, (bX, bY), (bX + bW, bY + bH), (0, 255, 0), 1)
-
-
-            # rects = skin_pixel_detection.get_face_bounding_box()
-            # Get facial landmarks
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            rect = detector(gray, 0)
+            # detect faces and create bounding box
+            rects = detector(gray, 0)
 
             # determine the facial landmarks for the face region, then
             # convert the facial landmark (x, y)-coordinates to a NumPy
             # array
-            shape = predictor(gray, rect)
-            shape = face_utils.shape_to_np(shape)
+            for rect in rects:
+                shape = predictor(gray, rect)
+                shape = face_utils.shape_to_np(shape)
 
-            # Draw facial landmarks on image
-            for (i, (x, y)) in enumerate(shape):
-                cv2.circle(image, (x, y), 1, (0, 0, 255), -1)
-                # print('Nr.%d: x:%d, y:%d' % (i, x, y))
-                cv2.putText(image, str(i + 1), (x - 10, y - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
+                # define the ROI from the given landmarks --> here: cheeks-area
+                polygon = [(shape[1][0], shape[1][1]), (shape[2][0], shape[2][1]), (shape[3][0], shape[3][1]),
+                           (shape[4][0], shape[4][1]), (shape[31][0], shape[31][1]), (shape[32][0], shape[32][1]),
+                           (shape[33][0], shape[33][1]), (shape[34][0], shape[34][1]), (shape[35][0], shape[35][1]),
+                           (shape[12][0], shape[12][1]), (shape[13][0], shape[13][1]), (shape[14][0], shape[14][1]),
+                           (shape[15][0], shape[15][1]), (shape[28][0], shape[28][1])]
 
-                ################################################################################################
-                ################################################################################################
-                ################################################################################################
+                poly_path = Path(polygon)
+
+                x, y = np.mgrid[:gray.shape[0], :gray.shape[1]]
+                x, y = x.flatten(), y.flatten()
+                coors = np.vstack((y, x)).T
+
+                mask = poly_path.contains_points(coors)
+
+                # loop over the (x, y)-coordinates for the facial landmarks
+                # and draw them on the image
+                # for (x, y) in shape:
+                #     cv2.circle(frame, (x, y), 1, (0, 0, 255), -1)
+
+                mask = mask.reshape(gray.shape[0], gray.shape[1])
+
+                # # get only masked pixel values in BGR format
+                # roi_pixels = frame[mask == True]
+                #
+                # # get average BGR values from ROI --> Be careful with BRG format (pleace double check this!!!)
+                # mean_bgr = np.array(roi_pixels).mean(axis=(0))
+                # mean_r = mean_bgr[2]
+                # mean_g = mean_bgr[1]
+                # mean_b = mean_bgr[0]
+                # print(mean_g)
+
+                # get only masked pixel values in HSV format
+                frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+                roi_pixels = frame_hsv[mask == True]
+
+                # hue = roi_pixels[:,0]
+                # saturation = roi_pixels[:,1]
+                # value = roi_pixels[:,2]
+                #
+                # color_mask = ((hue > 0) | (hue < 46)) & ((saturation > 23) | (saturation < 132)) & ((value > 88) | (value < 255))
+                #
+                # roi_pixels_refinement = roi_pixels[color_mask == True]
+
+                # get average Hue value from ROI
+                mean_hsv = np.array(roi_pixels).mean(axis=(0))
+                mean_hue = mean_hsv[0]
+
+                mean_values[processing_counter] = mean_hue
+
+                # color ROI in black
+                frame[mask] = 0
+
+            # show the frame
+            cv2.imshow("Frame", frame)
+            key = cv2.waitKey(1) & 0xFF
+
+            # calculation for FPS
+            stop = time.time()
+            seconds = stop - start
+            fps = 1 / seconds
+            print(fps)
+
+            processing_counter += 1
 
         else:
             print('LOG: FIFO Queue is empty')
@@ -263,6 +316,7 @@ class ImageCapture(threading.Thread):
                     frameCounter = frameCounter + 1
                     if success:
                         # TODO: Create queue for timestamps
+                        timestamps.append(datetime.utcnow())
                         processor.nextFrame = frame
                         processor.event.set()
                     else:
@@ -276,68 +330,32 @@ class ImageCapture(threading.Thread):
         print('Capture thread terminated')
 
 
-# FIFO queue processing Thread, self-starting
-class QueueProcessing(threading.Thread):
-    def __init__(self, queue):
-        threading.Thread.__init__(self)
-        self.daemon = True
-        self.queue = queue
-        self.start()
-
-    # Check if queue has entries, if yes process them
-    def run(self):
-        # Wait a short time, so that the queue contains some frames to be processed
-        time.sleep(2)
-
-        # Using 2sr method to extract heartbeat information from frames in queue
-        # spacial_subspace_rotation()
-
-        # Using facial landmarks to gernerate ROI and extract the mean hue value out of it.
-        facial_landmarks_plus_mean_hue()
-
-
-# Butterworth filter
-def butter_bandpass(lowcut, highcut, fs, order=9):
-    # Nyquist-Frequenz
-    nyq = 0.5 * fs
-    low = lowcut / nyq
-    high = highcut / nyq
-    b, a = butter(order, [low, high], btype='band')
-    return b, a
-
-
-# Butterworth filter
-def butter_bandpass_filter(data, lowcut, highcut, fs, order=9):
-    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
-    y = lfilter(b, a, data)
-    return y
-
-
-# Moving average filter
-def moving_average(hue_values, window):
-    weights = np.repeat(1.0, window) / window
-    ma = np.convolve(hue_values, weights, 'valid')
-    return ma
-
-
-# Create some threads for processing and frame grabbing
+# Create some threads for frame capturing and queuing
 processorPool = [ImageQueueing(i + 1) for i in range(processingThreads)]
 allProcessors = processorPool[:]
 captureThread = ImageCapture()
-queueProcessingThread = QueueProcessing(queue_frame)
 
-# Main loop, basically waits until you press CTRL+C
-# The captureThread gets the frames and passes them to an unused processing thread
-try:
-    print('Press CTRL+C to quit')
-    while running:
-        time.sleep(1)
-except KeyboardInterrupt:
-    print('\nUser shutdown')
-except:
-    e = sys.exc_info()
-    print(e)
-    print('\nUnexpected error, shutting down!')
+################################################
+# Queue Processing loop goes here (main Thread)#
+################################################
+
+# sleep for two seconds, that the queue can fill up, and then start processing the frames in the queue
+time.sleep(2)
+
+facial_landmarks_plus_mean_hue()
+
+# prepare measurements and save them to csv file
+output = zip(timestamps, mean_values)
+
+with open('TESTING/ppg_signal.csv', 'w') as file:
+    writer = csv.writer(file, delimiter=',')
+
+    # Zip the two lists and access pairs together.
+    for item1, item2 in output:
+        print(item1, "...", item2)
+        writer.writerow((item1, item2))
+
+
 
 # Cleanup all processing threads
 running = False
@@ -352,8 +370,7 @@ while allProcessors:
 # Cleanup the capture thread
 captureThread.join()
 
-# Cleanup the queueProcessing thread
-queueProcessingThread.join()
-
 # Cleanup the camera object
 cap.release()
+
+cv2.destroyAllWindows()
