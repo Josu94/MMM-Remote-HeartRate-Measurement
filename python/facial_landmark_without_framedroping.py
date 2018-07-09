@@ -17,13 +17,13 @@ from scipy.signal import butter, lfilter, freqz
 from datetime import datetime
 
 # Camera settings go here
-# imageWidth = 640
-# imageHeight = 480
-imageWidth = 1296
-imageHeight = 730
+imageWidth = 640
+imageHeight = 480
+#imageWidth = 1640
+#imageHeight = 1232
 frameRate = 20
 processingThreads = 4
-totalFrameNumber = 1250
+totalFrameNumber = 600
 
 temporal_stride = 20
 global frameCounter
@@ -40,10 +40,7 @@ running = True
 frameLock = threading.Lock()
 global queue_frame
 queue_frame = Queue()
-global queue_timestamps
-queue_timestamps = Queue()
-global hue_mean_array
-hue_mean_array = []
+
 
 # Setup the camera
 cap = cv2.VideoCapture(0)
@@ -61,9 +58,8 @@ detector = dlib.get_frontal_face_detector()
 print('INFO: Load dlibs face predictor (facial landmarks).')
 predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 
-
 # storage for mean values
-mean_values = np.zeros(1250, dtype='float64')
+mean_values = np.zeros(totalFrameNumber, dtype='float64')
 timestamps = []
 
 
@@ -147,9 +143,6 @@ def spacial_subspace_rotation():
 
 
 def facial_landmarks_plus_mean_hue():
-    # result (pulse signal)
-    global result
-    result = [totalFrameNumber]
 
     processing_counter = 0
     while True:
@@ -253,7 +246,7 @@ class ImageQueueing(threading.Thread):
         self.event = threading.Event()
         self.eventWait = (2.0 * processingThreads) / frameRate
         self.name = str(name)
-        print('Processor thread %s started with idle time of %.2fs' % (self.name, self.eventWait))
+        print('ImageQueuing thread %s started with idle time of %.2fs' % (self.name, self.eventWait))
         self.start()
 
     def run(self):
@@ -276,15 +269,14 @@ class ImageQueueing(threading.Thread):
                     # Return ourselves to the pool at the back
                     with frameLock:
                         processorPool.insert(0, self)
-        print('Processor thread %s terminated' % (self.name))
+        print('ImageQueuing thread %s terminated' % (self.name))
 
     def queue_image(self, image):
 
-        # First put image to queue then the Name (timestamp) for the image
+        # put image to queue
         global queue_frame
-        global queue_timestamps
         queue_frame.put(image)
-        queue_timestamps.put(datetime.utcnow())
+        print('Current queuesize: %.2fs' % (queue_frame.qsize()))
 
 
 # Image capture thread, self-starting
