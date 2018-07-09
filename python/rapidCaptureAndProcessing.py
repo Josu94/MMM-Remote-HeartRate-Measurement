@@ -11,6 +11,7 @@ from multiprocessing import Queue
 from imutils import face_utils
 from scipy import signal
 from scipy.signal import butter, lfilter, freqz
+from datetime import datetime
 
 # Camera settings go here
 imageWidth = 640
@@ -31,8 +32,10 @@ global frameLock
 global processorPool
 running = True
 frameLock = threading.Lock()
-global queue
-queue = Queue()
+global queue_frame
+queue_frame = Queue()
+global queue_timestamps
+queue_timestamps = Queue()
 global hue_mean_array
 hue_mean_array = []
 
@@ -53,6 +56,10 @@ print('INFO: Load dlibs face detector.')
 predictor = dlib.shape_predictor('../shape_predictor_5_face_landmarks.dat')
 print('INFO: Load dlibs face predictor (facial landmarks).')
 
+# storage for mean values
+mean_values = np.zeros(1250, dtype='float64')
+timestamps = []
+
 
 def spacial_subspace_rotation():
     # result (pulse signal)
@@ -67,9 +74,9 @@ def spacial_subspace_rotation():
     while True:
         ############### Processing for each image in queue goes here #####################
 
-        if not queue.empty():
+        if not queue_frame.empty():
             # Get the last frame from the queue
-            image = queue.get()
+            image = queue_frame.get()
 
             # Convert image to grayscale
             frame_grey = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -142,9 +149,9 @@ def facial_landmarks_plus_mean_hue():
     while True:
         ############### Processing for each image in queue goes here #####################
 
-        if not queue.empty():
+        if not queue_frame.empty():
             # Get the last frame from the queue
-            image = queue.get()
+            image = queue_frame.get()
 
             # Convert image to grayscale
             frame_grey = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -209,7 +216,7 @@ class ImageQueueing(threading.Thread):
                 if not running:
                     break
                 try:
-                    self.queue_image(self.nextFrame, self.nextFrameName)
+                    self.queue_image(self.nextFrame)
                 finally:
                     # Reset the event
                     self.nextFrame = None
@@ -219,11 +226,13 @@ class ImageQueueing(threading.Thread):
                         processorPool.insert(0, self)
         print('Processor thread %s terminated' % (self.name))
 
-    def queue_image(self, image, name):
+    def queue_image(self, image):
 
         # First put image to queue then the Name (timestamp) for the image
-        global queue
-        queue.put(image)
+        global queue_frame
+        global queue_timestamps
+        queue_frame.put(image)
+        queue_timestamps.put(datetime.utcnow())
 
 
 # Image capture thread, self-starting
@@ -254,8 +263,8 @@ class ImageCapture(threading.Thread):
                     # frame = cap.read()
                     frameCounter = frameCounter + 1
                     if success:
+                        # TODO: Create queue for timestamps
                         processor.nextFrame = frame
-                        processor.nextFrameName = 'video/image%10.4f.jpg' % time.time()
                         processor.event.set()
                     else:
                         print('Capture stream lost...')
@@ -318,7 +327,7 @@ def moving_average(hue_values, window):
 processorPool = [ImageQueueing(i + 1) for i in range(processingThreads)]
 allProcessors = processorPool[:]
 captureThread = ImageCapture()
-queueProcessingThread = QueueProcessing(queue)
+queueProcessingThread = QueueProcessing(queue_frame)
 
 # Main loop, basically waits until you press CTRL+C
 # The captureThread gets the frames and passes them to an unused processing thread
