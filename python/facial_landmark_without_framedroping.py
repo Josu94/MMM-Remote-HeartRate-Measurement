@@ -160,7 +160,7 @@ def facial_landmarks_plus_mean_hue():
 
             # Get the last frame from the queue
             frame = queue_frame.get()
-            frame = imutils.resize(frame, width=200)
+            #frame = imutils.resize(frame, width=200)  # --> Image will be resized bevor it is saved in queue to save memory!
 
             # convert image to grayscale
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -332,8 +332,8 @@ class ImageCapture(threading.Thread):
                     # frame = cap.read()
                     frameCounter = frameCounter + 1
                     if success:
-                        # TODO: Create queue for timestamps
                         timestamps.append(datetime.utcnow())
+                        frame = imutils.resize(frame, width=300)
                         processor.nextFrame = frame
                         processor.event.set()
                     else:
