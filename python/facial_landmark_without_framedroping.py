@@ -357,7 +357,7 @@ captureThread = ImageCapture()
 ################################################
 
 # sleep for two seconds, that the queue can fill up, and then start processing the frames in the queue
-time.sleep(15)
+time.sleep(1)
 
 facial_landmarks_plus_mean_hue()
 
