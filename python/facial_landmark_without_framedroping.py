@@ -23,7 +23,7 @@ imageHeight = 480
 #imageHeight = 1232
 frameRate = 20
 processingThreads = 4
-totalFrameNumber = 600
+totalFrameNumber = 1200
 
 temporal_stride = 20
 global frameCounter
@@ -152,21 +152,40 @@ def facial_landmarks_plus_mean_hue():
             # start time for calculating FPS
             start = time.time()
 
+            ###################################################################
+            # find_bottleneck_start = time.time()
+            # find_bottleneck_stop = time.time()
+            # elapsed_time = find_bottleneck_stop - find_bottleneck_start
+            ###################################################################
+
             # Get the last frame from the queue
             frame = queue_frame.get()
-            frame = imutils.resize(frame, width=400)
+            frame = imutils.resize(frame, width=200)
 
             # convert image to grayscale
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
+            find_bottleneck_start = time.time()
+
             # detect faces and create bounding box
             rects = detector(gray, 0)
+
+            find_bottleneck_stop = time.time()
+            elapsed_time = find_bottleneck_stop - find_bottleneck_start
+            print('Elapsed time face-detection: %f' % elapsed_time)
 
             # determine the facial landmarks for the face region, then
             # convert the facial landmark (x, y)-coordinates to a NumPy
             # array
             for rect in rects:
+                find_bottleneck_start = time.time()
+
                 shape = predictor(gray, rect)
+
+                find_bottleneck_stop = time.time()
+                elapsed_time = find_bottleneck_stop - find_bottleneck_start
+                print('Elapsed time facial-landmark: %f' % elapsed_time)
+
                 shape = face_utils.shape_to_np(shape)
 
                 # define the ROI from the given landmarks --> here: cheeks-area
@@ -222,15 +241,22 @@ def facial_landmarks_plus_mean_hue():
                 # color ROI in black
                 frame[mask] = 0
 
+            # find_bottleneck_start = time.time()
+            #
             # show the frame
-            cv2.imshow("Frame", frame)
-            key = cv2.waitKey(1) & 0xFF
+            #cv2.imshow("Frame", frame)
+            #key = cv2.waitKey(1) & 0xFF
+            #
+            # find_bottleneck_stop = time.time()
+            # elapsed_time = find_bottleneck_stop - find_bottleneck_start
+            # print('Elapsed time print frame: %f' % elapsed_time)
 
             # calculation for FPS
             stop = time.time()
             seconds = stop - start
             fps = 1 / seconds
-            print(fps)
+            #print(fps)
+            print('Total processing time: %f' % seconds)
 
             processing_counter += 1
 
@@ -276,7 +302,6 @@ class ImageQueueing(threading.Thread):
         # put image to queue
         global queue_frame
         queue_frame.put(image)
-        print('Current queuesize: %.2fs' % (queue_frame.qsize()))
 
 
 # Image capture thread, self-starting
@@ -332,7 +357,7 @@ captureThread = ImageCapture()
 ################################################
 
 # sleep for two seconds, that the queue can fill up, and then start processing the frames in the queue
-time.sleep(2)
+time.sleep(15)
 
 facial_landmarks_plus_mean_hue()
 
