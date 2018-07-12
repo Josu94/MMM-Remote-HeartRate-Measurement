@@ -19,7 +19,7 @@ from datetime import datetime
 imageWidth = 640
 imageHeight = 480
 frameRate = 20
-recordingTime = 60 * frameRate
+recordingTime = 32 * frameRate
 q = Queue()
 timestamps = []
 
@@ -190,7 +190,7 @@ if __name__ == '__main__':
     result = m.Queue()
 
     # Create Pool of 3 worker processes
-    pool = multiprocessing.Pool(4, process_image_worker, (q, result))
+    pool = multiprocessing.Pool(3, process_image_worker, (q, result))
 
     # Start capture images
     capture_images()
