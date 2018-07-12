@@ -7,9 +7,11 @@ import logging
 import multiprocessing
 import numpy as np
 import queue                               # for catching queue.Empty exception in worker process
+import csv
 from multiprocessing import Lock, Queue, Process, Pool
 from imutils import face_utils
 from matplotlib.path import Path
+from datetime import datetime
 
 #
 # Variables
@@ -18,6 +20,8 @@ imageWidth = 640
 imageHeight = 480
 frameRate = 20
 recordingTime = 60 * frameRate
+q = Queue()
+timestamps = []
 
 #
 # Setup the camera
@@ -42,7 +46,7 @@ predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 #
 # Capture images and store them in a FIFO queue
 #
-def capture_images(queue):
+def capture_images():
     frameCounter = 0
 
     while True:
@@ -51,10 +55,12 @@ def capture_images(queue):
             if success:
                 # Resize frame so save computation power
                 frame = imutils.resize(frame, width=400)
-                queue.put(frame)
+                q.put(frame)
+                timestamps.append(datetime.utcnow())
+
                 # Increase frameCounter
                 frameCounter += 1
-                print(frameCounter)
+                #print(frameCounter)
             else:
                 print('Capture stream lost...')
         else:
@@ -157,7 +163,8 @@ def process_image_worker(q, result):
         # Measure processing time for each frame
         sw_stop = time.time()
         seconds = sw_stop - sw_start
-        print('Worker tooks %f seconds.' % seconds)
+        #print('Worker tooks %f seconds.' % seconds)
+        print(seconds)
 
 
 def drain(q):
@@ -174,9 +181,6 @@ if __name__ == '__main__':
     # disable multithreading in OpenCV for main thread to avoid problems after fork --> https://github.com/opencv/opencv/issues/5150
     cv2.setNumThreads(0)
 
-    q = Queue()
-    #result = multiprocessing.Array('d', recordingTime)
-
     # Initialize Logger
     multiprocessing.log_to_stderr()
     logger = multiprocessing.get_logger()
@@ -186,17 +190,32 @@ if __name__ == '__main__':
     result = m.Queue()
 
     # Create Pool of 3 worker processes
-    pool = multiprocessing.Pool(3, process_image_worker, (q, result))
+    pool = multiprocessing.Pool(4, process_image_worker, (q, result))
 
     # Start capture images
-    capture_images(q)
+    capture_images()
 
     # Wait if all worker processes are done
     pool.close()
     pool.join()
 
+    #
+    # Save meanValue + corresponding timestamp into .csv file for displaying and compare ppg with ecg ground truth data
+    #
+    mean_values = []
     for item in drain(result):
         print(item)
+        mean_values.append(item)
+    # prepare measurements and save them to csv file
+    output = zip(timestamps, mean_values)
+
+    with open('TESTING/ppg_signal.csv', 'w') as file:
+        writer = csv.writer(file, delimiter=',')
+
+        # Zip the two lists and access pairs together.
+        for item1, item2 in output:
+            print(item1, "...", item2)
+            writer.writerow((item1, item2))
 
     # Program finished
     print('Programm exit.')
