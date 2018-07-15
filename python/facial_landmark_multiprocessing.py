@@ -1,3 +1,6 @@
+#
+# Imports
+#
 import os
 import cv2
 import time
@@ -6,12 +9,16 @@ import imutils
 import logging
 import multiprocessing
 import numpy as np
-import queue                               # for catching queue.Empty exception in worker process
+import queue  # for catching queue.Empty exception in worker process
 import csv
-from multiprocessing import Lock, Queue, Process, Pool
+import scipy.signal
+import matplotlib.pyplot as plt
+from multiprocessing import Lock, Queue, Process, Pool, Value
 from imutils import face_utils
 from matplotlib.path import Path
 from datetime import datetime
+from scipy.signal import butter, filtfilt
+from scipy import fftpack
 
 #
 # Variables
@@ -19,9 +26,10 @@ from datetime import datetime
 imageWidth = 640
 imageHeight = 480
 frameRate = 20
-recordingTime = 32 * frameRate
+recordingTime = 60 * frameRate
 q = Queue()
 timestamps = []
+frameCounter = None
 
 #
 # Setup the camera
@@ -47,10 +55,10 @@ predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 # Capture images and store them in a FIFO queue
 #
 def capture_images():
-    frameCounter = 0
+    global frameCounter
 
     while True:
-        if frameCounter < recordingTime:
+        if frameCounter.value < recordingTime:
             success, frame = cap.read()
             if success:
                 # Resize frame so save computation power
@@ -59,8 +67,8 @@ def capture_images():
                 timestamps.append(datetime.utcnow())
 
                 # Increase frameCounter
-                frameCounter += 1
-                #print(frameCounter)
+                with frameCounter.get_lock():
+                    frameCounter.value += 1
             else:
                 print('Capture stream lost...')
         else:
@@ -79,7 +87,7 @@ def process_image_worker(q, result):
     global predictor
 
     # enable multithreading in OpenCV for child thread --> https://github.com/opencv/opencv/issues/5150
-    #cv2.setNumThreads(-1)
+    # cv2.setNumThreads(-1)
 
     print(os.getpid(), "working")
     while True:
@@ -153,33 +161,184 @@ def process_image_worker(q, result):
             mean_hsv = np.array(roi_pixels).mean(axis=(0))
             mean_hue = mean_hsv[0]
 
-            #result.put(mean_hue)
             if result:
                 result.put(mean_hue)
 
-            # color ROI in black
-            #frame[mask] = 0
+                # color ROI in black
+                # frame[mask] = 0
 
         # Measure processing time for each frame
         sw_stop = time.time()
         seconds = sw_stop - sw_start
-        #print('Worker tooks %f seconds.' % seconds)
-        print(seconds)
+        # print('Worker tooks %f seconds.' % seconds)
+        #print(seconds)
 
 
+#
+# Empty queue
+#
 def drain(q):
     while True:
         try:
             yield q.get_nowait()
-        except queue.Empty:  # on python 2 use Queue.Empty
+        except queue.Empty:
             break
+
+
+#
+# Save meanValue + corresponding timestamp into .csv file for displaying and compare ppg with ecg ground truth data
+#
+def store_results():
+    mean_values = []
+    for item in drain(result):
+        print(item)
+        mean_values.append(item)
+    # prepare measurements and save them to csv file
+    output = zip(timestamps, mean_values)
+
+    with open('TESTING/ÖhlerJosua/Macbook/ppg_signal.csv', 'w') as file:
+        writer = csv.writer(file, delimiter=',')
+
+        # Zip the two lists and access pairs together.
+        for item1, item2 in output:
+            print(item1, "...", item2)
+            writer.writerow((item1, item2))
+
+
+#
+# Moving average filter
+#
+def moving_average(hue_values, window):
+    weights = np.repeat(1.0, window) / window
+    ma = np.convolve(hue_values, weights, 'valid')
+    return ma
+
+
+#
+# Bandpass filter
+#
+def bandpass(data, lowcut, highcut, sr, order=5):
+    passband = [lowcut * 2 / sr, highcut * 2 / sr]
+    b, a = butter(order, passband, 'bandpass')
+    y = filtfilt(b, a, data, axis=0, padlen=0)
+    return y
+
+
+#
+# Fast Furier Transformation
+#
+def fft_transformation(signal):
+    global frameRate
+    time_step = 1 / frameRate  # 20Hz
+
+    # The FFT of the signal
+    sig_fft = fftpack.fft(signal)
+
+    # And the power (sig_fft is of complex dtype)
+    power = np.abs(sig_fft)
+
+    # The corresponding frequencies
+    sample_freq = fftpack.fftfreq(signal.size, d=time_step)
+
+    # Find the peak frequency: we can focus on only the positive frequencies
+    pos_mask = np.where(sample_freq > 0)
+    freqs = sample_freq[pos_mask]
+    peak_freq = freqs[power[pos_mask].argmax()]
+
+    # # Plot fft result
+    # plt.figure(figsize=(8, 8))
+    # plt.plot(sample_freq, power)
+    # plt.xlabel('Frequency [Hz]')
+    # plt.ylabel('plower')
+    # plt.show()
+
+    return peak_freq
+
+
+#
+# Calculate the heartrate with fast furier transformation.
+# In first iteration wait for 30 seconds of video material. After that refresh heartrate every second (sliding window of 30s)
+#
+def calculate_heartrate(result):
+    global frameRate
+    global frameCounter
+
+    fft_window = []
+
+    # Sample rate and desired cutoff frequencies (in Hz).
+    sr = frameRate
+    lowcut = 0.75
+    highcut = 4.0
+
+    # If inicialize_hr is True, wait for 30 seconds of video input from queue
+    calculate_hr_started = False
+
+    # Endless loop
+    while True:
+        # Count entries in result queue
+        result_counter = result.qsize()
+
+        if result_counter == frameRate * 30:
+            # TODO: Berechne HR mit 30 s videomaterial
+            data_counter = 0
+            while data_counter < frameRate * 30:
+                fft_window.append(result.get())
+                data_counter += 1
+
+            # Apply Bandpass filter
+            s1 = bandpass(fft_window, lowcut, highcut, sr, order=5)
+
+            # Apply moving average filter
+            s2 = moving_average(s1, 8)
+
+            # Detrend signal
+            s3 = scipy.signal.detrend(s2)
+
+            # FFT transformation
+            peak_freq = fft_transformation(s3)
+
+            # Print out HR to the console
+            print('####################### First HR estimation...')
+            print(peak_freq * 60)
+
+            calculate_hr_started = True
+
+        elif calculate_hr_started == True and result_counter % frameRate * 1 == 0:
+            # TODO: Berechne HR mit 30 s videomaterial (sliding window) --> davon sind Anzahl frameRate frames neu
+            # Delete first N-elements in Array.
+            fft_window = fft_window[frameRate * 1:]
+            # Append array with new values from queue (1 second of new data)
+            data_counter = 0
+            while data_counter < frameRate * 1:
+                fft_window.append(result.get())
+                data_counter += 1
+
+            # Apply Bandpass filter
+            s1 = bandpass(fft_window, lowcut, highcut, sr, order=5)
+
+            # Apply moving average filter
+            s2 = moving_average(s1, 8)
+
+            # Detrend signal
+            s3 = scipy.signal.detrend(s2)
+
+            # FFT transformation
+            peak_freq = fft_transformation(s3)
+
+            # Print out HR to the console
+            print('####################### Updating HR estimation...')
+            print(peak_freq * 60)
+
 
 #
 # Main process
 #
 if __name__ == '__main__':
-    # disable multithreading in OpenCV for main thread to avoid problems after fork --> https://github.com/opencv/opencv/issues/5150
+    # Disable multithreading in OpenCV for main thread to avoid problems after fork --> https://github.com/opencv/opencv/issues/5150
     cv2.setNumThreads(0)
+
+    # Initialize a cross-process framecounter
+    frameCounter = Value('i', 0)
 
     # Initialize Logger
     multiprocessing.log_to_stderr()
@@ -189,8 +348,12 @@ if __name__ == '__main__':
     m = multiprocessing.Manager()
     result = m.Queue()
 
-    # Create Pool of 3 worker processes
+    # Create Pool of worker processes
     pool = multiprocessing.Pool(3, process_image_worker, (q, result))
+
+    # Calculate heart rate with fft
+    hr_estimation = Process(target=calculate_heartrate, args=(result,))
+    hr_estimation.start()
 
     # Start capture images
     capture_images()
@@ -199,23 +362,13 @@ if __name__ == '__main__':
     pool.close()
     pool.join()
 
-    #
-    # Save meanValue + corresponding timestamp into .csv file for displaying and compare ppg with ecg ground truth data
-    #
-    mean_values = []
-    for item in drain(result):
-        print(item)
-        mean_values.append(item)
-    # prepare measurements and save them to csv file
-    output = zip(timestamps, mean_values)
+    # Wait if last heart_rate estimation is finished
+    # TODO: It could be, that there are not enought frames at the end for a new estimation. So we have to terminate this thread at this point!
+    hr_estimation.join()
 
-    with open('TESTING/ppg_signal.csv', 'w') as file:
-        writer = csv.writer(file, delimiter=',')
-
-        # Zip the two lists and access pairs together.
-        for item1, item2 in output:
-            print(item1, "...", item2)
-            writer.writerow((item1, item2))
+    # Store results
+    # store_results()
 
     # Program finished
     print('Programm exit.')
+
