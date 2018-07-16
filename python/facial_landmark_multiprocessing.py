@@ -26,7 +26,7 @@ from scipy import fftpack
 imageWidth = 640
 imageHeight = 480
 frameRate = 20
-recordingTime = 60 * frameRate
+recordingTime = 35 * frameRate
 firstMeasurement = 30 * frameRate       # First measurement after 30 seconds
 additionalMeasurement = 1 * frameRate   # Further update HR every second
 q = Queue()
@@ -315,7 +315,6 @@ def calculate_heartrate(result):
             # Print out HR to the console
             #print('####################### First HR estimation...')
             print(round(peak_freq * 60, 0))
-            print(result_counter)
 
             calculate_hr_started = True
 
@@ -350,7 +349,6 @@ def calculate_heartrate(result):
             # Print out HR to the console
             #print('####################### Updating HR estimation...')
             print(round(peak_freq * 60, 0))
-            print(result_counter)
 
         # Implementing Progress bar:
         if progress == 0:
