@@ -26,7 +26,7 @@ from scipy import fftpack
 imageWidth = 640
 imageHeight = 480
 frameRate = 20
-recordingTime = 60 * frameRate
+recordingTime = 40 * frameRate
 q = Queue()
 timestamps = []
 frameCounter = None
@@ -44,11 +44,11 @@ if not cap.isOpened():
 #
 # Loading Dlib's face detector & facial landmark predictor (this takes a while, especially for the 68p predictor --> aprox. 100mb)
 #
-# print('INFO: Load dlibs face detector.')
+print('Load dlibs face detector.')
 detector = dlib.get_frontal_face_detector()
 
-# print('INFO: Load dlibs face predictor (facial landmarks).')
-predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
+print('Load dlibs face predictor.')
+predictor = dlib.shape_predictor('modules/MMM-Remote-HeartRate-Measurement/python/shape_predictor_68_face_landmarks.dat')
 
 
 #
@@ -62,21 +62,21 @@ def capture_images():
             success, frame = cap.read()
             if success:
                 # Resize frame so save computation power
-                frame = imutils.resize(frame, width=400)
+                frame = imutils.resize(frame, width=300)
                 q.put(frame)
                 timestamps.append(datetime.utcnow())
 
                 # Increase frameCounter
                 with frameCounter.get_lock():
                     frameCounter.value += 1
-            else:
-                print('Capture stream lost...')
+            #else:
+                #print('Capture stream lost...')
         else:
             # Cleanup camera object
             cap.release()
             break
 
-    print('Finished capturing...')
+    #print('Finished capturing...')
 
 
 #
@@ -89,7 +89,7 @@ def process_image_worker(q, result):
     # enable multithreading in OpenCV for child thread --> https://github.com/opencv/opencv/issues/5150
     # cv2.setNumThreads(-1)
 
-    print(os.getpid(), "working")
+    #print(os.getpid(), "working")
     while True:
         # Measure processing time for each frame
         sw_start = time.time()
@@ -97,7 +97,7 @@ def process_image_worker(q, result):
         try:
             frame = q.get(block=True, timeout=1)
         except queue.Empty:
-            print('Queue is empty...')
+            #print('Queue is empty...')
             return
 
         # convert frame to grayscale
@@ -191,7 +191,7 @@ def drain(q):
 def store_results():
     mean_values = []
     for item in drain(result):
-        print(item)
+        #print(item)
         mean_values.append(item)
     # prepare measurements and save them to csv file
     output = zip(timestamps, mean_values)
@@ -201,7 +201,7 @@ def store_results():
 
         # Zip the two lists and access pairs together.
         for item1, item2 in output:
-            print(item1, "...", item2)
+            #print(item1, "...", item2)
             writer.writerow((item1, item2))
 
 
@@ -298,8 +298,8 @@ def calculate_heartrate(result):
             peak_freq = fft_transformation(s3)
 
             # Print out HR to the console
-            print('####################### First HR estimation...')
-            print(peak_freq * 60)
+            #print('####################### First HR estimation...')
+            print(round(peak_freq * 60, 0))
 
             calculate_hr_started = True
 
@@ -326,14 +326,17 @@ def calculate_heartrate(result):
             peak_freq = fft_transformation(s3)
 
             # Print out HR to the console
-            print('####################### Updating HR estimation...')
-            print(peak_freq * 60)
+            #print('####################### Updating HR estimation...')
+            print(round(peak_freq * 60, 0))
 
 
 #
 # Main process
 #
 if __name__ == '__main__':
+    # Print text on MagicMirror
+    print('Herzfrequenz wird gemessen...')
+
     # Disable multithreading in OpenCV for main thread to avoid problems after fork --> https://github.com/opencv/opencv/issues/5150
     cv2.setNumThreads(0)
 
@@ -349,12 +352,13 @@ if __name__ == '__main__':
     result = m.Queue()
 
     # Create Pool of worker processes
-    pool = multiprocessing.Pool(3, process_image_worker, (q, result))
+    pool = multiprocessing.Pool(2, process_image_worker, (q, result))
 
     # Calculate heart rate with fft
     hr_estimation = Process(target=calculate_heartrate, args=(result,))
     hr_estimation.start()
 
+    print('Start capturing frames...')
     # Start capture images
     capture_images()
 
@@ -370,5 +374,5 @@ if __name__ == '__main__':
     # store_results()
 
     # Program finished
-    print('Programm exit.')
+    #print('Programm exit.')
 
