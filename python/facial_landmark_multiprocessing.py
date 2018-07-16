@@ -356,15 +356,17 @@ def calculate_heartrate(result):
         if progress == 0:
             print('.')
             progress += 1
-        elif progress == 100:
+        elif progress == 10000:
             print('..')
             progress += 1
-        elif progress == 200:
+        elif progress == 20000:
             print('...')
             progress += 1
-        elif progress == 300:
+        elif progress == 30000:
             print('')
             progress = 0
+        else:
+            progress += 1
 
 
 #
