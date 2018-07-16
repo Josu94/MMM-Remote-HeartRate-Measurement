@@ -25,8 +25,10 @@ from scipy import fftpack
 #
 imageWidth = 640
 imageHeight = 480
-frameRate = 20
-recordingTime = 40 * frameRate
+frameRate = 30
+recordingTime = 60 * frameRate
+firstMeasurement = 30 * frameRate       # First measurement after 30 seconds
+additionalMeasurement = 1 * frameRate   # Further update HR every second
 q = Queue()
 timestamps = []
 frameCounter = None
@@ -49,6 +51,8 @@ detector = dlib.get_frontal_face_detector()
 
 print('Load dlibs face predictor.')
 predictor = dlib.shape_predictor('modules/MMM-Remote-HeartRate-Measurement/python/shape_predictor_68_face_landmarks.dat')
+#predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
+
 
 
 #
@@ -229,7 +233,7 @@ def bandpass(data, lowcut, highcut, sr, order=5):
 #
 def fft_transformation(signal):
     global frameRate
-    time_step = 1 / frameRate  # 20Hz
+    time_step = 1 / frameRate  # in Hz
 
     # The FFT of the signal
     sig_fft = fftpack.fft(signal)
@@ -262,6 +266,8 @@ def fft_transformation(signal):
 def calculate_heartrate(result):
     global frameRate
     global frameCounter
+    global firstMeasurement
+    global additionalMeasurement
 
     fft_window = []
 
@@ -278,11 +284,17 @@ def calculate_heartrate(result):
         # Count entries in result queue
         result_counter = result.qsize()
 
-        if result_counter == frameRate * 30:
+        if result_counter == firstMeasurement:
             # TODO: Berechne HR mit 30 s videomaterial
             data_counter = 0
-            while data_counter < frameRate * 30:
-                fft_window.append(result.get())
+            queue_result = 0
+            while data_counter < firstMeasurement:
+                try:
+                    queue_result = result.get(block=True, timeout=3)
+                except queue.Empty:
+                    # print('Result-Queue is empty...')
+                    return
+                fft_window.append(queue_result)
                 data_counter += 1
 
             # Apply Bandpass filter
@@ -300,17 +312,24 @@ def calculate_heartrate(result):
             # Print out HR to the console
             #print('####################### First HR estimation...')
             print(round(peak_freq * 60, 0))
+            print(result_counter)
 
             calculate_hr_started = True
 
-        elif calculate_hr_started == True and result_counter % frameRate * 1 == 0:
+        elif calculate_hr_started == True and result_counter % additionalMeasurement == 0:
             # TODO: Berechne HR mit 30 s videomaterial (sliding window) --> davon sind Anzahl frameRate frames neu
             # Delete first N-elements in Array.
-            fft_window = fft_window[frameRate * 1:]
+            fft_window = fft_window[additionalMeasurement:]
             # Append array with new values from queue (1 second of new data)
             data_counter = 0
-            while data_counter < frameRate * 1:
-                fft_window.append(result.get())
+            queue_result = 0
+            while data_counter < additionalMeasurement:
+                try:
+                    queue_result = result.get(block=True, timeout=3)
+                except queue.Empty:
+                    # print('Result-Queue is empty...')
+                    return
+                fft_window.append(queue_result)
                 data_counter += 1
 
             # Apply Bandpass filter
@@ -328,6 +347,7 @@ def calculate_heartrate(result):
             # Print out HR to the console
             #print('####################### Updating HR estimation...')
             print(round(peak_freq * 60, 0))
+            print(result_counter)
 
 
 #

@@ -32,7 +32,7 @@ module.exports = NodeHelper.create({
         // childProcess.stdin.end();
 
         // Starting python process to save pictures from camera stream to Raspi SD-Card
-        var childProcess = spawn('python',
+        var childProcess = spawn('python3',
             ["-u", "modules/MMM-Remote-HeartRate-Measurement/python/facial_landmark_multiprocessing.py"], options);
 
         childProcess.stdout.on('data', (data) => {
@@ -43,8 +43,8 @@ module.exports = NodeHelper.create({
         childProcess.on('close', (code) => {
             console.log(`child process faceDetection exited with code ${code}`);
             //TODO: Face Detection abgeschlossen --> Mit Ultraschallsensor erneut prüfen, ob sich eine Person vor dem Spiegel befindet.
-            console.log('[INFO] Stopped face detection.')
-            self.socketNotificationToModul('FD_INFO', 'Stopped HR prediction.');
+            console.log('[INFO] Stopped HR measurement.')
+            self.socketNotificationToModul('FD_INFO', 'Completed HR measurement.');
         });
 
         childProcess.on('exit', function (code, signal) {
@@ -175,10 +175,10 @@ module.exports = NodeHelper.create({
 
     // Subclass socketNotificationReceived received.
     socketNotificationReceived: function (notification, payload) {
-        if (notification === 'START_FACE_DETECTION') {
+        if (notification === 'START_RAPID_CAPTURE') {
             this.config = payload
             if (!python_us_started) {
-                this.start_facedetection();
+                this.start_rapidCapture();
             }
         }
 

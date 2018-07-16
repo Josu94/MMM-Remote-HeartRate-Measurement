@@ -30,7 +30,7 @@ Module.register("MMM-Remote-HeartRate-Measurement", {
     start: function () {
         var self = this;
         if (self.config.ultrasonicSensor === false) {
-            this.sendSocketNotification('START_FACE_DETECTION', this.config);
+            this.sendSocketNotification('START_RAPID_CAPTURE', this.config);
         }
         Log.info('Starting module: ' + this.name);
 
