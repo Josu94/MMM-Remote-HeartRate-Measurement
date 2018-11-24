@@ -42,9 +42,11 @@ module.exports = NodeHelper.create({
 
         childProcess.on('close', (code) => {
             console.log(`child process faceDetection exited with code ${code}`);
-            //TODO: Face Detection abgeschlossen --> Mit Ultraschallsensor erneut prüfen, ob sich eine Person vor dem Spiegel befindet.
             console.log('[INFO] Stopped HR measurement.')
             self.socketNotificationToModul('FD_INFO', 'Completed HR measurement.');
+            // Starting ultrasonic sensor script again so check if a person is in front of the window
+            //TODO: Face Detection abgeschlossen --> Mit Ultraschallsensor erneut prüfen, ob sich eine Person vor dem Spiegel befindet.
+            //this.start_ultrasonic_sensor();
         });
 
         childProcess.on('exit', function (code, signal) {

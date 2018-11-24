@@ -2,7 +2,6 @@
 # Imports
 #
 import os
-import time
 import cv2
 import time
 import dlib
@@ -20,6 +19,7 @@ from matplotlib.path import Path
 from datetime import datetime
 from scipy.signal import butter, filtfilt
 from scipy import fftpack
+from sklearn.decomposition import FastICA
 
 #
 # Variables
@@ -27,22 +27,20 @@ from scipy import fftpack
 imageWidth = 640
 imageHeight = 480
 frameRate = 30
-recordingTime = 120 * frameRate
+recordingTime = 180 * frameRate
 firstMeasurement = 30 * frameRate       # First measurement after 30 seconds
 additionalMeasurement = 1 * frameRate   # Further update HR every second
 q = Queue()
 timestamps = []
 frameCounter = None
-allowedBpmVariance = 10                  # Allowed bpm variance in %
-
 
 #
 # Setup the camera
 #
 cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, imageWidth)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, imageHeight)
-cap.set(cv2.CAP_PROP_FPS, frameRate)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, imageWidth);
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, imageHeight);
+cap.set(cv2.CAP_PROP_FPS, frameRate);
 if not cap.isOpened():
     cap.open()
 
@@ -53,10 +51,8 @@ print('Load dlibs face detector.')
 detector = dlib.get_frontal_face_detector()
 
 print('Load dlibs face predictor.')
-# Path for MagicMirror Software on Mac
-predictor = dlib.shape_predictor('modules/MMM-Remote-HeartRate-Measurement/python/shape_predictor_68_face_landmarks.dat')
-# Path for Pycharm on Mac
-#predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
+#predictor = dlib.shape_predictor('modules/MMM-Remote-HeartRate-Measurement/python/shape_predictor_68_face_landmarks.dat')
+predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 
 
 
@@ -91,7 +87,7 @@ def capture_images():
 #
 # Process image in own process.
 #
-def process_image_worker(q, result):
+def process_image_worker(q, result_hue, result_sat, result_val):
     global detector
     global predictor
 
@@ -156,6 +152,8 @@ def process_image_worker(q, result):
 
             # get only masked pixel values in HSV format
             frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+
             roi_pixels = frame_hsv[mask == True]
 
             # hue = roi_pixels[:,0]
@@ -168,10 +166,18 @@ def process_image_worker(q, result):
 
             # get average Hue value from ROI
             mean_hsv = np.array(roi_pixels).mean(axis=(0))
-            mean_hue = mean_hsv[0]
 
-            if result:
-                result.put(mean_hue)
+            mean_hue = mean_hsv[0]
+            mean_sat = mean_hsv[1]
+            mean_val = mean_hsv[2]
+
+
+            if result_hue:
+                result_hue.put(mean_hue)
+            if result_sat:
+                result_sat.put(mean_sat)
+            if result_val:
+                result_val.put(mean_val)
 
                 # color ROI in black
                 # frame[mask] = 0
@@ -199,7 +205,7 @@ def drain(q):
 #
 def store_results():
     mean_values = []
-    for item in drain(result):
+    for item in drain(result_hue):
         #print(item)
         mean_values.append(item)
     # prepare measurements and save them to csv file
@@ -254,12 +260,6 @@ def fft_transformation(signal):
     freqs = sample_freq[pos_mask]
     peak_freq = freqs[power[pos_mask].argmax()]
 
-    # Debug purpuses
-    all_freq = freqs[:power[pos_mask].argmax()]
-    all_freq_bpm = all_freq * 60
-    #print(all_freq_bpm)
-    logger.info(all_freq_bpm)
-
     # # Plot fft result
     # plt.figure(figsize=(8, 8))
     # plt.plot(sample_freq, power)
@@ -271,26 +271,34 @@ def fft_transformation(signal):
 
 
 #
+# Normalize Data
+#
+def norm(data):
+    return (data - min(data)) / (max(data) - min(data))
+
+
+#
 # Calculate the heartrate with fast furier transformation.
 # In first iteration wait for 30 seconds of video material. After that refresh heartrate every second (sliding window of 30s)
 #
-def calculate_heartrate(result, savedBpmValues):
+def calculate_heartrate(result_hue, result_sat, result_val):
     global frameRate
     global frameCounter
     global firstMeasurement
     global additionalMeasurement
-    multiprArrayCounter = 0
 
     # Show 1-3 dots in GUI to display progress
     progress = 0
     progress_flag = True
 
-    fft_window = []
+    fft_window_hue = []
+    fft_window_sat = []
+    fft_window_val = []
 
     # Sample rate and desired cutoff frequencies (in Hz).
     sr = frameRate
     lowcut = 0.75
-    highcut = 3.0
+    highcut = 4.0
 
     # If inicialize_hr is True, wait for 30 seconds of video input from queue
     calculate_hr_started = False
@@ -298,67 +306,64 @@ def calculate_heartrate(result, savedBpmValues):
     # Endless loop
     while True:
         # Count entries in result queue
-        result_counter = result.qsize()
-        #print(result_counter)
-        logger.info(result_counter)
-
+        result_counter = result_hue.qsize()
 
         if result_counter == firstMeasurement:
-            #print('1. Berechnung')
             # TODO: Berechne HR mit 30 s videomaterial
             data_counter = 0
-            queue_result = 0
+            queue_result_hue = 0
+            queue_result_sat = 0
+            queue_result_val = 0
             while data_counter < firstMeasurement:
                 try:
-                    queue_result = result.get(block=True, timeout=3)
+                    queue_result_hue = result_hue.get(block=True, timeout=3)
+                    queue_result_sat = result_sat.get(block=True, timeout=3)
+                    queue_result_val = result_val.get(block=True, timeout=3)
                 except queue.Empty:
                     # print('Result-Queue is empty...')
                     return
-                fft_window.append(queue_result)
+                fft_window_hue.append(queue_result_hue)
+                fft_window_sat.append(queue_result_sat)
+                fft_window_val.append(queue_result_val)
                 data_counter += 1
 
             # Apply Bandpass filter
-            s1 = bandpass(fft_window, lowcut, highcut, sr, order=5)
+            #s1 = bandpass(fft_window, lowcut, highcut, sr, order=5)
 
             # Apply moving average filter
             #s2 = moving_average(s1, 8)
 
             # Detrend signal
+            #s3 = scipy.signal.detrend(s2)
 
             # FFT transformation
-            peak_freq = fft_transformation(s1)
+            #peak_freq = fft_transformation(s3)
 
             # Print out HR to the console
-            #print('####################### First HR estimation...')
+            #print(round(peak_freq * 60, 0))
 
-            savedBpmValues[0] = round(peak_freq * 60, 0)
-            multiprArrayCounter += 1
+            # ICA Workflow
+            S = np.c_[fft_window_hue, fft_window_sat, fft_window_val]
 
-            print('%s bpm' %(int(round(peak_freq * 60, 0))))
+            # Normalize HSV traces
+            fft_window_hue = norm(fft_window_hue)
+            fft_window_sat = norm(fft_window_sat)
+            fft_window_val = norm(fft_window_val)
 
+            # Mix data
+            A = np.array([[np.random.normal(), np.random.normal(), np.random.normal()] for j in range(3)])  # Mixing matrix
+            X = np.dot(S, A.T)  # Generate observations
 
-            calculate_hr_started = True
-            progress_flag = False
+            # Compute ICA
+            ica = FastICA(n_components=3)
+            S_ = ica.fit_transform(X)  # Reconstruct signals
+            A_ = ica.mixing_  # Get estimated mixing matrix
 
-        elif calculate_hr_started == True and result_counter % additionalMeasurement == 0:
-            #print('Nte Berechnung')
-            # TODO: Berechne HR mit 30 s videomaterial (sliding window) --> davon sind Anzahl frameRate frames neu
-            # Delete first N-elements in Array.
-            fft_window = fft_window[additionalMeasurement:]
-            # Append array with new values from queue (1 second of new data)
-            data_counter = 0
-            queue_result = 0
-            while data_counter < additionalMeasurement:
-                try:
-                    queue_result = result.get(block=True, timeout=3)
-                except queue.Empty:
-                    # print('Result-Queue is empty...')
-                    return
-                fft_window.append(queue_result)
-                data_counter += 1
+            # Split S_ into 3 single Timesignals
+            S_hue, S_sat, S_val = S_.T
 
             # Apply Bandpass filter
-            s1 = bandpass(fft_window, lowcut, highcut, sr, order=5)
+            s1 = bandpass(S_hue, lowcut, highcut, sr, order=5)
 
             # Apply moving average filter
             s2 = moving_average(s1, 8)
@@ -370,51 +375,86 @@ def calculate_heartrate(result, savedBpmValues):
             peak_freq = fft_transformation(s3)
 
             # Print out HR to the console
-            #print('####################### Updating HR estimation...')
-            current_hr = round(peak_freq * 60, 0)
+            print(round(peak_freq * 60, 0))
 
-            # Prozentuale Abweichung berechnen
-            prevBpmValue = savedBpmValues[multiprArrayCounter - 1]
+            calculate_hr_started = True
+            progress_flag = False
 
-            le = len(savedBpmValues[:])
-            arrc = multiprArrayCounter
-            #print(savedBpmValues[:])
-            g = int(sum(savedBpmValues[:multiprArrayCounter]) / multiprArrayCounter)
-            f = (((current_hr/g) - 1) * 100)
+        elif calculate_hr_started == True and result_counter % additionalMeasurement == 0:
+            # TODO: Berechne HR mit 30 s videomaterial (sliding window) --> davon sind Anzahl frameRate frames neu
+            # Delete first N-elements in Array.
+            fft_window_hue = fft_window_hue[additionalMeasurement:]
+            fft_window_sat = fft_window_sat[additionalMeasurement:]
+            fft_window_val = fft_window_val[additionalMeasurement:]
+            # Append array with new values from queue (1 second of new data)
+            data_counter = 0
+            queue_result_hue = 0
+            queue_result_sat = 0
+            queue_result_val = 0
+            while data_counter < additionalMeasurement:
+                try:
+                    queue_result_hue = result_hue.get(block=True, timeout=3)
+                    queue_result_sat = result_sat.get(block=True, timeout=3)
+                    queue_result_val = result_val.get(block=True, timeout=3)
+                except queue.Empty:
+                    # print('Result-Queue is empty...')
+                    return
+                fft_window_hue = np.append(fft_window_hue, queue_result_hue)
+                fft_window_sat = np.append(fft_window_sat, queue_result_sat)
+                fft_window_val = np.append(fft_window_val, queue_result_val)
+                data_counter += 1
 
-            # Save first 10 raw BPM meassures. For the following (>10) compare them to the mean of the first 10 (11,12,13,...)
-            if multiprArrayCounter < 10:
-                savedBpmValues[multiprArrayCounter] = current_hr
-                print('%s bpm' %(int(current_hr)))
-            else:
-                if -allowedBpmVariance <= (((current_hr/g) - 1) * 100) <= allowedBpmVariance:
-                    savedBpmValues[multiprArrayCounter] = current_hr
-                    print('%s bpm' %(int(current_hr)))
-                else:
-                    savedBpmValues[multiprArrayCounter] = prevBpmValue
-                    print('%s (%s) bpm' %(int(prevBpmValue), int(current_hr)))
+            S = np.c_[fft_window_hue, fft_window_sat, fft_window_val]
 
-            multiprArrayCounter += 1
+            # Normalize HSV traces
+            fft_window_hue = norm(fft_window_hue)
+            fft_window_sat = norm(fft_window_sat)
+            fft_window_val = norm(fft_window_val)
+
+            # Mix data
+            A = np.array(
+                [[np.random.normal(), np.random.normal(), np.random.normal()] for j in range(3)])  # Mixing matrix
+            X = np.dot(S, A.T)  # Generate observations
+
+            # Compute ICA
+            print('Computing ICA...')
+            ica = FastICA(n_components=3)
+            S_ = ica.fit_transform(X)  # Reconstruct signals
+            A_ = ica.mixing_  # Get estimated mixing matrix
+
+            # Split S_ into 3 single Timesignals
+            S_hue, S_sat, S_val = S_.T
+
+            # Apply Bandpass filter
+            s1 = bandpass(S_hue, lowcut, highcut, sr, order=5)
+
+            # Apply moving average filter
+            s2 = moving_average(s1, 8)
+
+            # Detrend signal
+            s3 = scipy.signal.detrend(s2)
+
+            # FFT transformation
+            peak_freq = fft_transformation(s3)
+
+            # Print out HR to the console
+            # print('####################### Updating HR estimation...')
+            print(round(peak_freq * 60, 0))
 
 
         if progress_flag == True:
             # Implementing Progress bar:
-            # if progress == 0:
-            #     print('.')
-            #     progress += 1
-            # elif progress == 10000:
-            #     print('..')
-            #     progress += 1
-            # elif progress == 20000:
-            #     print('...')
-            #     progress += 1
-            # elif progress == 30000:
-            #     print('')
-            #     progress = 0
-            # else:
-            #     progress += 1
-            if progress == 1000:
-                print("%s " %(int(round(((result_counter/firstMeasurement)*100), 0))) + str('%'))
+            if progress == 0:
+                print('.')
+                progress += 1
+            elif progress == 10000:
+                print('..')
+                progress += 1
+            elif progress == 20000:
+                print('...')
+                progress += 1
+            elif progress == 30000:
+                print('')
                 progress = 0
             else:
                 progress += 1
@@ -439,16 +479,15 @@ if __name__ == '__main__':
     logger.setLevel(logging.INFO)
 
     m = multiprocessing.Manager()
-    result = m.Queue()
-
-    # shared Array for savedBpmValues (memory would be shared between processes)
-    savedBpmValues = multiprocessing.Array('d', int((recordingTime - firstMeasurement) / frameRate) + 1)
+    result_hue = m.Queue()
+    result_sat = m.Queue()
+    result_val = m.Queue()
 
     # Create Pool of worker processes
-    pool = multiprocessing.Pool(2, process_image_worker, (q, result))
+    pool = multiprocessing.Pool(2, process_image_worker, (q, result_hue, result_sat, result_val))
 
     # Calculate heart rate with fft
-    hr_estimation = Process(target=calculate_heartrate, args=(result, savedBpmValues))
+    hr_estimation = Process(target=calculate_heartrate, args=(result_hue, result_sat, result_val))
     hr_estimation.start()
 
     print('Start capturing frames...')
@@ -462,18 +501,6 @@ if __name__ == '__main__':
     # Wait if last heart_rate estimation is finished
     # TODO: It could be, that there are not enought frames at the end for a new estimation. So we have to terminate this thread at this point!
     hr_estimation.join()
-
-    #print('Gemessene Herzfrequenzen Übersicht:')
-    #time.sleep(3)
-    #print(savedBpmValues[:])
-    #time.sleep(5)
-
-    # Only save bpm values greater than 0.0 and compute average HR out of them.
-    bpmList = savedBpmValues[:]
-    bpmNewList = [x for x in bpmList if x > 0.0]
-
-    print('Die Durchschnittsherzfrequenz der letzten ' + str(recordingTime / frameRate) + ' Sekunden betrug: ' + str(int(sum(bpmNewList) / len(bpmNewList))) + ' bpm')
-    time.sleep(15)
 
     # Store results
     # store_results()
